@@ -21,12 +21,12 @@ option_list <- list(
     help="Point size of plots [default=16]"),
   make_option("--hitregion", type="character", default="",
     help="File with candidate regions, CHROM;START;END;COL;LEGENDTEXT [default='']"),
-  make_option("--chr", type="character", default="",
+  make_option("--chr", type="character", default="CHR",
     help="name of column with chromosome [default='CHR']"),
-  make_option("--pos", type="character", default="",
-    help="name of column with position [default='']"),
-  make_option("--p", type="character", default="",
-    help="name of column with p.value [default='']"),
+  make_option("--pos", type="character", default="POS",
+    help="name of column with position [default='POS']"),
+  make_option("--pvalue", type="character", default="PVALUE",
+    help="name of column with p.value [default='PVALUE']"),
   make_option("--log10p", type="logical", default=T,
     help="Input p.value column with -log10(p.value) [default=T]"),    
   make_option("--maintitle", type="character", default="",
@@ -61,10 +61,10 @@ colLine <- c("red")
 gwas <- fread(opt$input)
 
 if(!opt$log10p) {
-	gwas$log10P <- -log10(gwas[[opt$p]])
+	gwas$log10P <- -log10(gwas[[opt$pvalue]])
 	ycol <- "log10P"
 } else {
-	ycol <- opt$p
+	ycol <- opt$pvalue
 }
 
 gwas <- na.omit(data.frame(gwas[,c(chrcol,poscol,ycol),with=F]))
@@ -87,6 +87,10 @@ thinned <- sort(c(keepTop,thinned))
 # Prepare plot data / two-colored chromosomes / with fixed gap
 CHR <- gwas[[chrcol]][thinned]
 CHR[which(CHR == 23)] <- "X"
+CHR[which(CHR == 24)] <- "Y"
+CHR[which(CHR == 25)] <- "XY"
+CHR[which(CHR == 26)] <- "MT"
+
 POS <- gwas[[poscol]][thinned]
 log10P <- gwas[[ycol]][thinned]
 chrs <- c(1:22,"X",23,"Y",24,"XY",25,"MT",26)
