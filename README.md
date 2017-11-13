@@ -19,7 +19,16 @@ Check the required/available Rscript parameters by using the following command
 Check the required/available Rscript parameters by using the following command
 
     Rscript ManhattanPlot.r --help
-        
+
+## Minimal/example Input format
+
+|CHROM	|POS	|MAF	|PVALUE	|
+|---	|---	|---	|---	|
+|1  	|1  	|0.05	|0.99	|
+|2  	|2   	|0.15	|0.1	|
+|3  	|3  	|0.5	|0.25	|
+
+
 ### Examples
 
     Rscript --vanilla QQplot.r \
