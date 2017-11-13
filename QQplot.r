@@ -53,7 +53,7 @@ option_list <- list(
     help="name of column with MAF [default='MAF']"),
   make_option("--pvalue", type="character", default="PVALUE",
     help="name of column with p.value [default='PVALUE']"),
-  make_option("--log10p", type="logical", default=T,
+  make_option("--log10p", type="logical", default=F,
     help="Input p.value column with -log10(p.value) [default=F]"),    
   make_option("--maintitle", type="character", default="",
     help="Plot title")  
