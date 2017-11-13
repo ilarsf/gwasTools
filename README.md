@@ -24,7 +24,7 @@ Check the required options by using the following command
 
     Rscript --vanilla QQplot.r \
     --input ExampleGWAS.txt \
-    --prefix ExampleGWAS\
+    --prefix ExampleGWAS \
     --maf MAF \
     --p LOG10P_GC \
     --log10p T \
@@ -33,7 +33,7 @@ Check the required options by using the following command
 
     Rscript --vanilla ManhattanPlot.r \
     --input ExampleGWAS.txt \
-    --prefix ExampleGWAS\
+    --prefix ExampleGWAS \
     --chr CHROM \
     --pos POS \
     --p LOG10P_GC \
