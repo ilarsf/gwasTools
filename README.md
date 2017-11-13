@@ -20,7 +20,7 @@ Check the required/available Rscript parameters by using the following command
 
     Rscript ManhattanPlot.r --help
 
-## Minimal/example Input format (uncomressed / tab delimited)
+## Minimal/example Input format (uncompressed text file / tab delimited)
 
 |CHROM	|POS	|MAF	|PVALUE	|
 |---	|---	|---	|---	|
