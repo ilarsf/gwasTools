@@ -20,7 +20,7 @@ Check the required/available Rscript parameters by using the following command
 
     Rscript ManhattanPlot.r --help
 
-## Minimal/example Input format
+## Minimal/example Input format (uncomressed / tab delimited)
 
 |CHROM	|POS	|MAF	|PVALUE	|
 |---	|---	|---	|---	|
@@ -35,8 +35,7 @@ Check the required/available Rscript parameters by using the following command
     --input ExampleGWAS.txt \
     --prefix ExampleGWAS \
     --maf MAF \
-    --p LOG10P_GC \
-    --log10p T \
+    --p PVALUE \
     --maintitle 'An Example QQ plot'
 
 
@@ -45,7 +44,6 @@ Check the required/available Rscript parameters by using the following command
     --prefix ExampleGWAS \
     --chr CHROM \
     --pos POS \
-    --p LOG10P_GC \
-    --log10p T \
+    --p PVALUE \
     --maintitle 'An Example Manhattan plot'
  
