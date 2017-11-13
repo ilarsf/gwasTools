@@ -9,14 +9,14 @@ The following R pakages need to be installed for running these Rscripts:
 
 ## Creating a QQ plot:
 
-Check the required options by using the following command
+Check the required/available Rscript parameters by using the following command
 
     Rscript QQplot.r --help
 
 
 ## Creating a Manhattan plot:
 
-Check the required options by using the following command
+Check the required/available Rscript parameters by using the following command
 
     Rscript ManhattanPlot.r --help
         
