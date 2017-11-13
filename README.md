@@ -1,6 +1,6 @@
 # gwasTools
 
-A collecion of R scripts that might be useful to plot GWAS results.
+A collection of R scripts that might be useful to plot GWAS results.
 
 The following R pakages need to be installed for running these Rscripts:
 
