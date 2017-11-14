@@ -75,7 +75,7 @@ if(!opt$log10p) {
 	gwas$log10P <- -log10(gwas[[opt$p]])
 	ycol <- "log10P"
 } else {
-	ycol <- opt$p
+	ycol <- opt$pvalue
 }
 
 gwas <- na.omit(data.frame(gwas[,c(opt$maf,ycol),with=F]))
