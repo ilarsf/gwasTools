@@ -35,7 +35,7 @@ Check the required/available Rscript parameters by using the following command
     --input ExampleGWAS.txt \
     --prefix ExampleGWAS \
     --maf MAF \
-    --p PVALUE \
+    --pvalue PVALUE \
     --maintitle 'An Example QQ plot'
 
 
@@ -44,6 +44,6 @@ Check the required/available Rscript parameters by using the following command
     --prefix ExampleGWAS \
     --chr CHROM \
     --pos POS \
-    --p PVALUE \
+    --pvalue PVALUE \
     --maintitle 'An Example Manhattan plot'
  
