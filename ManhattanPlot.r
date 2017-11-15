@@ -13,9 +13,9 @@ option_list <- list(
     help="top size = proportion of total length y axis [default=0.125]"),
   make_option("--break.top", type="numeric", default=15,
     help="set axis break at -log10(P) [default=15]"),
-  make_option("--mh.width", type="numeric", default=1600,
+  make_option("--width", type="numeric", default=1600,
     help="Width Manhattan plot in pixel [default=1600]"),
-  make_option("--mh.height", type="numeric", default=900,
+  make_option("--height", type="numeric", default=900,
     help="Height Manhattan plot in pixel [default=900]"),
   make_option("--pointsize", type="numeric", default=16,
     help="Point size of plots [default=16]"),
@@ -135,7 +135,7 @@ if(dim(candidateRegions)[1]>0){
 }
 
 # Manhattan plot
-png(filename = paste0(opt$prefix,"_Manhattan.png"), width = opt$mh.width, height = opt$mh.height, pointsize = opt$pointsize)
+png(filename = paste0(opt$prefix,"_Manhattan.png"), width = opt$width, height = opt$height, pointsize = opt$pointsize)
     par(mar=c(5.1,5.1,4.1,1.1),las=1)
     x = plotdata$plotPos
     y = plotdata$log10P
