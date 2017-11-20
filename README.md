@@ -15,6 +15,7 @@ Please check out the required/available Rscript parameters by using the followin
 
     Rscript QQplot.r --help
 
+![QQ plot](/Example_QQ.png)
 
 ## Manhattan plot:
 
@@ -22,11 +23,15 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 
     Rscript ManhattanPlot.r --help
 
+![Manhattan plot](/Example_Manhattan.png)
+
 ## 80% Power plot(s):
 
 80% Power plots based on Cohen's effect size calculation for proportions as implemented in the 'pwr' R package
 
     Rscript --vanilla PowerPlot.r
+
+![Manhattan plot](/Example_PowerAnalysis.png)
 
 ## Minimal/example Input format for QQ and Manhattan plots
 
