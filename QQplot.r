@@ -115,7 +115,7 @@ legendtext <- paste0("MAF=",fbin,"; N SNPs=",format(fN,big.mark=",",scientific=F
 
 
 ## QQ plot by binned frequencies
-png(filename = paste0(opt$prefix,"_QQ_Plot.png"), width = opt$width, height = opt$height, pointsize = opt$pointsize)
+png(filename = paste0(opt$prefix,"_QQ.png"), width = opt$width, height = opt$height, pointsize = opt$pointsize)
 	xlim <- c(0,max(fx,na.rm=T))
 	ylim <- c(0,max(fy,na.rm=T))
 	maxY <- max(fy,na.rm=T)
