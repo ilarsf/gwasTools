@@ -28,7 +28,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 
     Rscript --vanilla PowerPlot.r
 
-## Minimal/example Input format for QQ and Manhattan plots (uncompressed text file / tab delimited)
+## Minimal/example Input format for QQ and Manhattan plots
 
 |CHROM	|POS	|MAF	|PVALUE	|
 |---	|---	|---	|---	|
