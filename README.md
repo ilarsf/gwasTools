@@ -41,7 +41,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 
     Rscript --vanilla QQplot.r \
     --input ExampleGWAS.txt \
-    --prefix ExampleGWAS \
+    --prefix Example \
     --maf MAF \
     --pvalue PVALUE \
     --maintitle 'An Example QQ plot'
@@ -49,7 +49,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 
     Rscript --vanilla ManhattanPlot.r \
     --input ExampleGWAS.txt \
-    --prefix ExampleGWAS \
+    --prefix Example \
     --chr CHROM \
     --pos POS \
     --pvalue PVALUE \
