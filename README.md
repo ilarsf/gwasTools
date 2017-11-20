@@ -7,20 +7,28 @@ The following R pakages need to be installed for running these Rscripts:
 *optparse, data.table, RColorBrewer, plotrix*
 
 
-## Creating a QQ plot:
+## QQ plot:
 
-Check the required/available Rscript parameters by using the following command
+Frequency binned and thinned QQ plot.
+
+Please check out the required/available Rscript parameters by using the following command
 
     Rscript QQplot.r --help
 
 
-## Creating a Manhattan plot:
+## Manhattan plot:
 
-Check the required/available Rscript parameters by using the following command
+Fast Manhattan plot script. Please check out the required/available Rscript parameters by using the following command
 
     Rscript ManhattanPlot.r --help
 
-## Minimal/example Input format (uncompressed text file / tab delimited)
+## 80% Power plot(s):
+
+80% Power plots based on Cohen's effect size calculation for proportions as implemented in the 'pwr' R package
+
+    Rscript --vanilla PowerPlot.r
+
+## Minimal/example Input format for QQ and Manhattan plots (uncompressed text file / tab delimited)
 
 |CHROM	|POS	|MAF	|PVALUE	|
 |---	|---	|---	|---	|
@@ -47,3 +55,9 @@ Check the required/available Rscript parameters by using the following command
     --pvalue PVALUE \
     --maintitle 'An Example Manhattan plot'
  
+    Rscript --vanilla PowerPlot.r \
+    --prefix Example \
+    --cases 500,1000,5000 \
+    --controls 1000,2000,10000 \
+    --minMAF 0.001 \
+    --alpha 5E-8 
