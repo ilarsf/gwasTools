@@ -55,6 +55,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
     --pvalue PVALUE \
     --maintitle 'An Example Manhattan plot'
  
+ 
     Rscript --vanilla PowerPlot.r \
     --prefix Example \
     --cases 500,1000,5000 \
