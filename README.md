@@ -29,7 +29,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 
 80% Power plots based on Cohen's effect size calculation for proportions as implemented in the 'pwr' R package
 
-    Rscript --vanilla PowerPlot.r
+    Rscript PowerPlot.r --help
 
 <img src="/Example_PowerAnalysis.png" height="480">
 
@@ -42,9 +42,9 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 |3  	|3  	|0.5	|0.25	|
 
 
-### Examples
+### Examples (run from command line):
 
-    Rscript --vanilla QQplot.r \
+    Rscript QQplot.r \
     --input ExampleGWAS.txt \
     --prefix Example \
     --maf MAF \
@@ -52,7 +52,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
     --maintitle 'An Example QQ plot'
 
 
-    Rscript --vanilla ManhattanPlot.r \
+    Rscript ManhattanPlot.r \
     --input ExampleGWAS.txt \
     --prefix Example \
     --chr CHROM \
@@ -61,7 +61,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
     --maintitle 'An Example Manhattan plot'
  
  
-    Rscript --vanilla PowerPlot.r \
+    Rscript PowerPlot.r \
     --prefix Example \
     --cases 500,1000,5000 \
     --controls 1000,2000,10000 \
