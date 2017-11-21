@@ -7,7 +7,7 @@ The following R pakages need to be installed for running these Rscripts:
 *optparse, data.table, RColorBrewer, plotrix, pwr*
 
 
-## QQ plot:
+## QQ Plot
 
 Frequency binned and thinned QQ plot.
 
@@ -17,7 +17,7 @@ Please check out the required/available Rscript parameters by using the followin
 
 <img src="/Example_QQ.png" height="480">
 
-## Manhattan plot:
+## Manhattan Plot
 
 Fast Manhattan plot script. Please check out the required/available Rscript parameters by using the following command
 
@@ -25,7 +25,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 
 <img src="/Example_Manhattan.png" height="480">
 
-## 80% Power plot(s):
+## 80% Power Plot
 
 80% Power plots based on Cohen's effect size calculation for proportions as implemented in the 'pwr' R package
 
