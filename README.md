@@ -15,7 +15,7 @@ Please check out the required/available Rscript parameters by using the followin
 
     Rscript QQplot.r --help
 
-![QQ plot](/Example_QQ.png)
+<img src="/Example_QQ.png" height="480">
 
 ## Manhattan plot:
 
@@ -23,7 +23,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 
     Rscript ManhattanPlot.r --help
 
-![Manhattan plot](/Example_Manhattan.png)
+<img src="/Example_Manhattan.png" height="480">
 
 ## 80% Power plot(s):
 
@@ -31,7 +31,7 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
 
     Rscript --vanilla PowerPlot.r
 
-![Manhattan plot](/Example_PowerAnalysis.png)
+<img src="/Example_PowerAnalysis.png" height="480">
 
 ## Minimal/example Input format for QQ and Manhattan plots
 
