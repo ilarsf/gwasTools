@@ -4,16 +4,6 @@ library("optparse")
 library("RColorBrewer")
 library("pwr")
 
-# only difference to "2p2n" function: it calculates effective samples size internally
-# h <- pwr.2p2n.test(h = NULL, n1 = ncontrols*2, n2 = ncases*2, sig.level = alpha, power = 0.8, alternative = "two.sided")$h
-			
-# h = 2*asin(sqrt(p1))-2*asin(sqrt(p2))
-# p1 = (sin(h/2 + asin(sqrt(p2))))^2
-# p2 = (sin(asin(sqrt(p1)) - h/2))^2
-
-# system("cd ~/;wget https://cran.r-project.org/src/contrib/pwr_1.1-3.tar.gz")
-# install.packages("~/pwr_1.1-3.tar.gz",repos=NULL,type="source")
-
 # Power Analysis
 getPower <- function(ncases,ncontrols,alpha,raf.controls){
 	# effective samples size in alleles (x2)
@@ -89,9 +79,7 @@ parser <- OptionParser(usage="%prog [options]", option_list=option_list)
 
 args <- parse_args(parser, positional_arguments = 0)
 opt <- args$options
-#print(opt)
-
-#### Example for power curve
+print(opt)
 
 samplesizes <- data.frame('cases'=as.integer(strsplit(opt$cases,",")[[1]]),
 		   'controls'=as.integer(strsplit(opt$controls,",")[[1]]))
@@ -100,7 +88,7 @@ plotdata <- list()
 
 freqs <- seq(0,1,opt$stepsize)
 
-# maximal 24 unique line color combinations
+# maximal 24 unique line/color combinations
 allcols <- rep(brewer.pal(8,"Dark2"),3)
 alllines <- rep(1:6,4)
 
