@@ -174,7 +174,7 @@ png(filename = paste0(opt$prefix,"_QQ.png"), width = opt$width, height = opt$hei
 	# plot version with single y axes
 	} else {
 		par(mar=c(5.1,5.1,4.1,1.1),las=1)
-		axislim <- ceiling(range(xlim,ylim,-log10(gwthreshold)))
+		axislim <- ceiling(range(xlim,ylim,yLine))
 		plot(0,0,
 			ylim=axislim,xlim=xlim,axes=T,
 			xlab=expression(plain(Expected)~~group("(",-log[10]*italic(P),")")),
