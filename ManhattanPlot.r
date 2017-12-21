@@ -94,8 +94,9 @@ CHR <- gwas[[chrcol]][thinned]
 POS <- gwas[[poscol]][thinned]
 log10P <- gwas[[ycol]][thinned]
 chrs <- c(1:22,"X",23,"Y",24,"XY",25,"MT",26)
+chrs <- c(chrs,paste0("chr",chrs))
 chrs <- chrs[which(chrs %in% CHR)]
-chrNr <- as.numeric(as.character(factor(CHR,levels=chrs,labels=1:length(chrs))))
+chrNr <- as.numeric(gsub("chr","",as.character(factor(CHR,levels=chrs,labels=1:length(chrs)))))
 chrColors <- c("grey40","grey60")[(1:length(chrs)%%2)+1]
 names(chrColors) <- chrs
 plotdata <- data.frame(
@@ -104,9 +105,9 @@ plotdata <- data.frame(
     log10P,
     'plotPos'=NA,
     'chrNr'= chrNr,
-    'pch'=20,
-    'highlightColor'=NA,
-    'pcol'=chrColors[CHR],
+    pch=20,
+    highlightColor=NA,
+    pcol=chrColors[CHR],
     check.names=F)
 endPos <- 0
 plotPos <- numeric(0)
