@@ -40,7 +40,7 @@ opt <- args$options
 print(opt)
 
 if (opt$hitregion != ""){
-	candidateRegions <- read.table(opt$hitregion,sep="\t",header=T,check.names=F)
+	candidateRegions <- read.table(opt$hitregion,sep="\t",header=T,check.names=F,comment.char="")
 } else {
 	candidateRegions <- data.frame(
 		'CHROM'=character(0),
