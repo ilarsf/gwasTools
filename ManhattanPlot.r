@@ -104,9 +104,9 @@ plotdata <- data.frame(
     log10P,
     'plotPos'=NA,
     'chrNr'= chrNr,
-    pch=20,
-    highlightColor=NA,
-    pcol=chrColors[CHR],
+    'pch'=20,
+    'highlightColor'=NA,
+    'pcol'=chrColors[CHR],
     check.names=F)
 endPos <- 0
 plotPos <- numeric(0)
@@ -140,6 +140,7 @@ if(dim(candidateRegions)[1]>0){
 						 is.na(plotdata$highlightColor) &
 				 		 plotdata$log10P >= yLine
 					)
+		}
 		if(length(overlap)==0) next
 		plotdata$highlightColor[overlap] <- candidateRegions$COL[a]
 		plotdata$pcol[overlap] <- NA
