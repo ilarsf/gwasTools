@@ -105,9 +105,9 @@ plotdata <- data.frame(
     log10P,
     'plotPos'=NA,
     'chrNr'= chrNr,
-    pch=20,
-    highlightColor=NA,
-    pcol=chrColors[CHR],
+    'pch'=20,
+    'highlightColor'=NA,
+    'pcol'=chrColors[CHR],
     check.names=F)
 endPos <- 0
 plotPos <- numeric(0)
@@ -121,7 +121,7 @@ for(chr in chrs){
     plotPos <- c(plotPos,chrPOS)
 }
 plotdata$plotPos <- plotPos
-
+chrs <- gsub("chr","",chrs)
 
 # Highlight candidate regions
 if(dim(candidateRegions)[1]>0){
