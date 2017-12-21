@@ -29,6 +29,10 @@ option_list <- list(
     help="name of column with p.value [default='PVALUE']"),
   make_option("--log10p", type="logical", default=F,
     help="Input p.value column with -log10(p.value) [default=F]"),    
+  make_option("--sigthreshold", type="numeric", default=5E-8,
+    help="Significance threshold [default=5E-8]"),    	
+  make_option("--coltop", type="logical", default=F,
+    help="Highlight only markers above the significance threshold [default=F]"),    	
   make_option("--maintitle", type="character", default="",
     help="Plot title")  
 )
@@ -55,7 +59,7 @@ chrcol <- opt$chr
 poscol <- opt$pos
 
 # horizontal lines and corresponding colors
-yLine <- c(-log10(5E-8))
+yLine <- c(-log10(opt$sigthreshold))
 colLine <- c("red")
 
 gwas <- fread(opt$input)
@@ -123,11 +127,19 @@ if(dim(candidateRegions)[1]>0){
 	a <- 0
 	while(a < dim(candidateRegions)[1]){
 		a <- a + 1 
-		overlap <- which(plotdata$CHR == candidateRegions$CHROM[a] &
+		if(!opt$coltop){
+			overlap <- which(plotdata$CHR == candidateRegions$CHROM[a] &
 						 plotdata$POS >= candidateRegions$START[a] &
 						 plotdata$POS <= candidateRegions$END[a] &
 						 is.na(plotdata$highlightColor)
-						)
+					)
+		} else {
+			overlap <- which(plotdata$CHR == candidateRegions$CHROM[a] &
+						 plotdata$POS >= candidateRegions$START[a] &
+						 plotdata$POS <= candidateRegions$END[a] &
+						 is.na(plotdata$highlightColor) &
+				 		 plotdata$log10P >= yLine
+					)
 		if(length(overlap)==0) next
 		plotdata$highlightColor[overlap] <- candidateRegions$COL[a]
 		plotdata$pcol[overlap] <- NA
