@@ -123,6 +123,11 @@ for(chr in chrs){
 plotdata$plotPos <- plotPos
 chrs <- gsub("chr","",chrs)
 
+# update numeric non-autosomal chromosome names
+fixChr <- c(1:22,"X","Y","XY","MT","X","Y","XY","MT")
+names(fixChr) <- c(1:26,"X","Y","XY","MT")
+chrs <- fixChr[chrs]
+
 # Highlight candidate regions
 if(dim(candidateRegions)[1]>0){
 	a <- 0
