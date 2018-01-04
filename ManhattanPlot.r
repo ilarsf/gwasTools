@@ -6,7 +6,7 @@ library("optparse")
 
 option_list <- list(
   make_option("--input", type="character", default="",
-    help="Input file, tab delimited"),   
+    help="Input file, tab delimited; e.g. columns: 'CHR','POS', and 'PVALUE'"),   
   make_option("--prefix", type="character", default="",
     help="Prefix of output files"),   
   make_option("--top.size", type="numeric", default=0.125,
