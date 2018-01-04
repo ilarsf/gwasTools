@@ -36,7 +36,7 @@ qqplotdata <- function(logpvector){
 
 option_list <- list(
   make_option("--input", type="character", default="",
-    help="Input file, tab delimited"),   
+    help="Input file, tab delimited; required columns: 'MAF' and 'PVALUE'"),   
   make_option("--prefix", type="character", default="",
     help="Prefix of output files"),   
   make_option("--top.size", type="numeric", default=0.125,
