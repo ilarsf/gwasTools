@@ -16,8 +16,8 @@ qqplotdata <- function(logpvector){
     
     N <- length(logpvector) ## number of p-values
     ## create the confidence intervals
-    qqdata$c95 <- NA
-    qqdata$c05 <- NA
+    qqdata$c975 <- NA
+    qqdata$c025 <- NA
 
     ## the jth order statistic from a
     ## uniform(0,1) sample
@@ -27,8 +27,8 @@ qqplotdata <- function(logpvector){
 
     for(i in 1:length(keepU)){
         j <- keepU[i]
-        qqdata$c95[i] <- -log10(qbeta(0.95,j,N-j+1))
-        qqdata$c05[i] <- -log10(qbeta(0.05,j,N-j+1))
+        qqdata$c975[i] <- -log10(qbeta(0.975,j,N-j+1))
+        qqdata$c025[i] <- -log10(qbeta(0.025,j,N-j+1))
     }
     return(qqdata)
 }
@@ -108,7 +108,7 @@ for(f in 1:length(freqtable)){
 	fy <- c(fy,plotdata$o)
 	fcol <- c(fcol,rep(allcols[f],length(plotdata$o)))
 	conf[[f]] <- data.frame('x'=c(plotdata$e,rev(plotdata$e)),
-							'y'=c(plotdata$c95,rev(plotdata$c05)))
+							'y'=c(plotdata$c975,rev(plotdata$c025)))
 	legendcol <- c(legendcol,allcols[f])
 }
 legendtext <- paste0("MAF=",fbin,"; N SNPs=",format(fN,big.mark=",",scientific=FALSE))
