@@ -72,7 +72,7 @@ colLine <- c("red")
 gwas <- fread(opt$input)
 
 if(!opt$log10p) {
-	gwas$log10P <- -log10(gwas[[opt$p]])
+	gwas$log10P <- -log10(gwas[[opt$pvalue]])
 	ycol <- "log10P"
 } else {
 	ycol <- opt$pvalue
