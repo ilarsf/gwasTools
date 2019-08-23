@@ -1,4 +1,5 @@
-# Manhattan plot by Lars Fritsche 2019
+# Copyright (c) 2019 Lars Fritsche
+# Manhattan plot Rscript
 
 options(stringsAsFactors=F)
 library("optparse")
