@@ -1,7 +1,8 @@
 # Manhattan plot by Lars Fritsche 2019
 
 options(stringsAsFactors=F)
-require("optparse")
+library("optparse")
+library("data.table")
  
 ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion="",
 	chr="CHROM",pos="POS",pvalue="PVALUE",
