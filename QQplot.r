@@ -1,4 +1,5 @@
-# QQ plot by Lars Fritsche 2019
+# Copyright (c) 2019 Lars Fritsche
+# QQ plot Rscript
 
 options(stringsAsFactors=F)
 library("optparse")
