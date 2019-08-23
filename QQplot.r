@@ -2,6 +2,7 @@
 
 options(stringsAsFactors=F)
 library("optparse")
+library("data.table")
 
 # QQ plot function
 qqplotdata <- function(logpvector){
