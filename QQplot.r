@@ -203,7 +203,7 @@ setDTthreads(opt$threads)
 
 gwas <- fread(opt$input,select=c(opt$maf,opt$pvalue),col.names=c("MAF","PVALUE"))
 
-png(filename = paste0(opt$prefix,"_Manhattan.png"), width=opt$width,height=opt$height,pointsize=opt$pointsize)
+png(filename = paste0(opt$prefix,"_QQ.png"), width=opt$width,height=opt$height,pointsize=opt$pointsize)
 	QQplot(res=gwas,top.size=opt$top.size,break.top=opt$break.top,
 		log10p=opt$log10p,sigthreshold="5E-8",maintitle=opt$maintitle,DTthreads=opt$threads)
 dev.off()
