@@ -40,7 +40,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion="",
 		setnames(res,"PVALUE","LOG10P")
 	}
 
-	res <- na.omit(res)
+	res <- na.omit(res[.(CHROM,POS,LOG10P)])
 	res <- res[!is.infinite(LOG10P),]
 	res <- res[order(as.numeric(gsub("chr","",gsub("X",23,CHROM))),POS),]
 	Nmarkers <- nrow(res)
