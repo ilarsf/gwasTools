@@ -223,7 +223,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 
 	regionLabels <- merge(plotdata[,.(CHROM,POS,x,y)],
 		candidateRegions,
-		by=c("CHROM","POS"))
+		by=c("CHROM","POS"),sort=F)
 
 	# plot non-highlighted positions
 	plotdata[,plot(x,y,ylim=ylim,axes=FALSE,
