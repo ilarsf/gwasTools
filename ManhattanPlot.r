@@ -257,7 +257,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			plotdata[highlightColor == hcol,points(x,y,pch=20,col=hcol, cex=0.9)]
 		}	
 		# non-overlapping labels
-		regionLabels[,addTextLabels(xCoords = `x`, yCoords = `y`, labels = `NearestGene`, 
+		regionLabels[,addTextLabels(xCoords = `x`, yCoords = `y`, labels = `LABEL`, 
 			col.label = "black", col.line = t_black, cex.label = 1, col.background = t_white)]
 	}
 	
