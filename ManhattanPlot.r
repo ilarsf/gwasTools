@@ -20,7 +20,7 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 	
 		if(!file.exists(file.genelist37)){
 			genelist37 <- GetGeneList_v11("Homo sapiens",build="BUILD.37.3",savefiles=F,destfile=tempfile())
-			1
+			2
 			y
 			fwrite(genelist37,file.genelist37,sep="\t",quote=T)
 		}
