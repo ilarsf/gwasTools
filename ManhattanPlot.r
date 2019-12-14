@@ -4,31 +4,71 @@
 options(stringsAsFactors=F)
 library("optparse")
 library("data.table")
- 
-ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion="",
-	chr="CHROM",pos="POS",pvalue="PVALUE",
+t_white <- grDevices::rgb(t(grDevices::col2rgb("white")), alpha = 100, maxColorValue = 255)
+t_black <- grDevices::rgb(t(grDevices::col2rgb("black")), alpha = 75, maxColorValue = 255)
+
+getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
+	position="position",build="37"){
+	require(Map2NCBI)
+	require(data.table)
+
+	markers <- input[,c(Marker,chromosome,position),with=F]
+	names(markers) <- c("Marker","chromosome","position")
+
+	if(build == "37"){
+		file.genelist37 <- path.expand("~/GeneList_Homo_sapiens_BUILD.37.3.txt")
+	
+		if(!file.exists(file.genelist37)){
+			genelist37 <- GetGeneList_v11("Homo sapiens",build="BUILD.37.3",savefiles=F,destfile=tempfile())
+			1
+			y
+			fwrite(genelist37,file.genelist37,sep="\t",quote=T)
+		}
+		genelist37 <- fread(file.genelist37)
+		genelist37 <- genelist37[feature_type == "GENE",]
+		MappedGenes <- MapMarkers(genelist37, markers, nAut=22, other = c("X"),savefiles=F)
+		MappedGenes <- MappedGenes[,.(Marker,chromosome,position,feature_name,`Inside?`)]
+		setnames(MappedGenes,c("Marker","chromosome","position","feature_name","Inside?"),
+			c(Marker,chromosome,position,"LABEL","RelativeToGene"))
+	}
+
+	if(build == "38"){
+		file.genelist38 <- path.expand("~/GeneList_Homo_sapiens_BUILD.38.txt")
+		if(!file.exists(file.genelist38)){
+			genelist38 <- GetGeneList("Homo sapiens",savefiles=F,destfile=tempfile())
+			y
+			y
+			fwrite(genelist38,file.genelist38,sep="\t",quote=T)
+		}
+		genelist38 <- fread(file.genelist38)
+		genelist38 <- genelist38[feature == "gene" &
+			seq_type %in% c("chromosome","mitochondrion") &
+			`attributes` != "pseudo",]
+		MappedGenes <- MapMarkers(genelist38, markers, nAut=22, other = c("X"),savefiles=F)
+		MappedGenes <- MappedGenes[,.(Marker,chromosome,position,symbol,`Inside?`)]
+		setnames(MappedGenes,c("Marker","chromosome","position","symbol","Inside?"),
+			c(Marker,chromosome,position,"LABEL","RelativeToGene"))
+	}
+	output <- merge(input,MappedGenes,by=c(Marker,chromosome,position))
+	return(output)
+}
+
+# main function to generate Manhattan plots
+ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
+	chr="CHROM",pos="POS",pvalue="PVALUE",build="37",
 	log10p=F,sigthreshold="5E-8",coltop=F,maintitle="",DTthreads=1) {
 
 	options(stringsAsFactors=F)
 	require("plotrix")
 	require("data.table")
 	require("RColorBrewer")
+	# devtools::install_github('JosephCrispell/basicPlotteR')
+	require(basicPlotteR)
 	setDTthreads(DTthreads)
 
 	if(!is.data.table(res)) res <- as.data.table(res)
-	setnames(res,c(chr,pos,pvalue),c("CHROM","POS","PVALUE"),skip_absent=T)
 
-	if (hitregion != ""){
-		candidateRegions <- read.table(hitregion,sep="\t",header=T,check.names=F,comment.char="")
-	} else {
-		candidateRegions <- data.frame(
-			'CHROM'=character(0),
-			'START'=numeric(0),
-			'END'=numeric(0),
-			'COL'=character(0),
-			'LEGENDTEXT'=character(0)
-			)
-	}
+	setnames(res,c(chr,pos,pvalue),c("CHROM","POS","PVALUE"),skip_absent=T)
 
 	# horizontal lines and corresponding colors
 	yLine <- c(-log10(sort(as.numeric(unlist(strsplit(sigthreshold,","))))))
@@ -40,10 +80,39 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion="",
 		setnames(res,"PVALUE","LOG10P")
 	}
 
-	res <- na.omit(res[.(CHROM,POS,LOG10P)])
-	res <- res[!is.infinite(LOG10P),]
-	res <- res[order(as.numeric(gsub("chr","",gsub("X",23,CHROM))),POS),]
+	res <- na.omit(res[!is.infinite(LOG10P),.(CHROM,POS,LOG10P)])
+	res[,numCHR:=as.numeric(gsub("chr","",gsub("^X$|^XY$","23",CHROM)))]
+
+	res <- res[order(numCHR,POS),]
 	Nmarkers <- nrow(res)
+
+	if (!is.null(hitregion)){
+		candidateRegions <- fread(hitregion,sep="\t",header=T)
+	} else {
+		hits <- res[LOG10P >= min(yLine),]
+		hits[,`:=`(POS0=POS-1,CHROM=gsub("chr","",CHROM))]
+		x <- as.numeric(hits$POS)
+		y <- hits$numCHR
+		start = c(1, which(diff(y) != 0 | diff(x) <= -500000 | diff(x) >= 500000) + 1)
+		end = c(start - 1, length(x))
+		candidateRegions <- data.table(
+			'CHROM'=hits$CHROM[start],
+			'START'=hits$POS[start] - 500000,
+			'END'=hits$POS[end] + 500000,
+			'COL'="blue",
+			'MARKER'=1:length(start),
+			'POS'=NA)
+		candidateRegions[START < 1,START:=1]
+		for(r in 1:nrow(candidateRegions)){
+			rhits <- hits[CHROM == candidateRegions$CHROM[r] & 
+				POS >= candidateRegions$START[r] & POS <= candidateRegions$END[r],]
+			candidateRegions$POS[r] <- rhits$POS[which.max(rhits$LOG10P)]
+		}
+
+		# add nearest GENENAME
+		candidateRegions <- getNearestGene(input=candidateRegions,Marker="MARKER",chromosome="CHROM",position="POS",build=build)
+		candidateRegions <- candidateRegions[,.(CHROM,START,END,COL,POS,LABEL,RelativeToGene)]	
+	}
 
 	# Thinning; remove 95% of variants with P > 0.05
 	prethin1 <- which(res$LOG10P >= -log10(0.05) & res$LOG10P <= 6)
@@ -52,7 +121,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion="",
 	prethin <- c(prethin1,prethin2)
 
 	# Additional thinning using unique after rounding position and p-value
-	thinned <- prethin[which(!duplicated(data.table(res$CHROM[prethin],
+	thinned <- prethin[which(!duplicated(data.frame(res$CHROM[prethin],
 					round(res$POS[prethin]/10000),round(res$LOG10P[prethin],1))))]
 
 	# Plot all SNPs with p < 1E-6
@@ -60,9 +129,8 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion="",
 	thinned <- sort(c(keepTop,thinned))
 
 	# Prepare plot data / two-colored chromosomes / with fixed gap
-	plotdata <- data.table(res[thinned,.(CHROM,POS,LOG10P)],
-		'pch'=20,
-		'highlightColor'=as.character(NA))
+	plotdata <- res[thinned,.(CHROM,POS,LOG10P)]
+	plotdata[,`:=`(pch=20,highlightColor=as.character(NA))]
 	
 	chrs <- c(1:22,"X",23,"Y",24,"XY",25,"MT",26)
 	chrs <- c(chrs,paste0("chr",chrs))
@@ -85,7 +153,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion="",
 		endPos <- max(chrPOS,na.rm=T)+chrGAP
 		plotPos <- c(plotPos,chrPOS)
 	}
-	plotdata[,plotPos:=plotPos]
+	plotdata[,x:=plotPos]
 	
 	chrs <- gsub("chr","",chrs)
 
@@ -103,113 +171,98 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion="",
 				overlap <- plotdata[CHROM == candidateRegions$CHROM[a] &
 							 POS >= candidateRegions$START[a] &
 							 POS <= candidateRegions$END[a] &
-							 is.na(highlightColor),.I]
+							 is.na(highlightColor),`:=`
+							 	(highlightColor = candidateRegions$COL[a],pcol=NA)]
 			} else {
 				overlap <- plotdata[CHROM == candidateRegions$CHROM[a] &
 							 POS >= candidateRegions$START[a] &
 							 POS <= candidateRegions$END[a] &
 							 is.na(highlightColor) &
-							 LOG10P >= min(yLine),.I]
+							 LOG10P >= min(yLine),`:=`
+							 	(highlightColor = candidateRegions$COL[a],pcol=NA)]
 			}
-			if(length(overlap)==0) next
-			plotdata[overlap,highlightColor:=candidateRegions$COL[a]]
-			plotdata[overlap,pcol:=NA]
 		}
 	}
 
+
 	# Manhattan plot
 	par(mar=c(5.1,5.1,4.1,1.1),las=1)
-	x = plotdata$plotPos
-	y = plotdata$LOG10P
-	maxY <- max(y,na.rm=T)
+	maxY <- plotdata[,max(LOG10P,na.rm=T)]
 
 	# Version with two y axes
 	if(maxY > break.top/(1 - top.size)){
 		# Manhattan plot with two different y axis scales
-
-		# set axis labels of both scales
+		# set axis labels for both scales
 		lab1 <- pretty(c(0,break.top),n=ceiling(12 * (1-top.size)))
 		lab1 <- c(lab1[lab1 < break.top],break.top)
 		lab2 <- pretty(c(break.top,maxY),n=max(3,floor(12 * top.size)))
 		lab2 <- lab2[lab2 > max(lab1)]
-
+		lab <- c(lab1,lab2)
 		# resulting range of top scale in bottom scale units
 		top.range = break.top/(1 - top.size) - break.top
 		top.data = max(lab2)-break.top
 		# function to rescale the top part
-		rescale = function(y) {break.top+(y-break.top)/(top.data/top.range)}
+        rescaleY <- function(y) {
+            if (y <= break.top) {
+                y
+            } else {
+                break.top + (y - break.top)/(top.data/top.range)
+            }
+        }
+		ylim=c(0,break.top+top.range)
+		addbreak <- T
+	} else {
+	    break.top <- maxY
+        rescaleY <- function(y) y
+        addbreak <- F
+        ylim <- c(0,ceiling(max(maxY+1,yLine)))
+		lab <- pretty(ylim)
+		lab <- lab[lab < maxY]
+	}
+	plotdata[,y:=sapply(LOG10P,rescaleY)]
 
-		# plot bottom part / rescaled
-		plot(x[y<break.top],y[y<break.top],ylim=c(0,break.top+top.range),axes=FALSE,
-			pch=plotdata$pch[y<break.top], cex=0.9,cex.lab=1.5,cex.axis=1.5, xaxt="n",
-			col=plotdata$pcol[y<break.top], ylab=expression(-log[10]*italic(P)), xlab="",bty="n",
-			main=gsub("_"," ",paste0(maintitle,"\n",format(Nmarkers,big.mark=",",scientific=F),
-			" variants")))
-		# plot top part
-		points(x[y>break.top],rescale(y[y>break.top]),pch=plotdata$pch[y>break.top],
-			col=plotdata$pcol[y>break.top],cex=0.9)
+	regionLabels <- merge(plotdata[,.(CHROM,POS,x,y)],
+		candidateRegions,
+		by=c("CHROM","POS"))
 
-		# plot highlighted regions
-		for(hcol in unique(plotdata$highlightColor)){
-			topDot <- plotdata[which(plotdata$highlightColor == hcol & y>break.top),]
-			if(length(topDot)>0) {
-				points(topDot$plotPos,rescale(topDot$LOG10P),pch=20,col=hcol, cex=0.9)
-			}
-			bottomDot <- plotdata[which(plotdata$highlightColor == hcol & y<=break.top),]
-			if(length(bottomDot)>0) {
-				points(bottomDot$plotPos,bottomDot$LOG10P,pch=20,col=hcol, cex=0.9)
-			}
-		}
+	# plot non-highlighted positions
+	plotdata[,plot(x,y,ylim=ylim,axes=FALSE,
+		pch=`pch`, cex=0.9,cex.lab=1.5,cex.axis=1.5, xaxt="n",
+		col=`pcol`, ylab=expression(-log[10]*italic(P)), xlab="",bty="n",
+		main=gsub("_"," ",paste0(maintitle,"\n",format(Nmarkers,big.mark=",",scientific=F),
+		" variants")))]
 
-		# add axes and axis labels
-		axis(1,at=chrLab[seq(1,length(chrLab),by=2)],
-			labels=chrs[1:length(chrLab)][seq(1,length(chrLab),by=2)],
-			las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=2)
-		axis(1,at=chrLab[seq(2,length(chrLab),by=2)],
-			labels=chrs[1:length(chrLab)][seq(2,length(chrLab),by=2)],
-			las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=0)
-		axis(side=2,at=lab1,cex.axis=1.5,cex.lab=1.5)
-		axis(side=2,at=rescale(lab2),labels=lab2,cex.axis=1.5,cex.lab=1.5)
+	# add axes and axis labels
+	axis(1,at=chrLab[seq(1,length(chrLab),by=2)],
+		labels=chrs[1:length(chrLab)][seq(1,length(chrLab),by=2)],
+		las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=2)
+	axis(1,at=chrLab[seq(2,length(chrLab),by=2)],
+		labels=chrs[1:length(chrLab)][seq(2,length(chrLab),by=2)],
+		las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=0)
+	axis(side=2,at=sapply(lab,rescaleY),labels=lab,cex.axis=1.5,cex.lab=1.5)
 
+	if(addbreak){
 		# plot axis breaks and indicate line of axis break
 		box()
 		axis.break(axis=2,breakpos=break.top,style="zigzag",brw=0.02)
 		axis.break(axis=4,breakpos=break.top,style="zigzag",brw=0.02)
 		abline(h=break.top,lwd=1.5,lty=2,col="grey")
-		if(length(yLine)>0) {
-			for(rl in 1:length(yLine)){
-				if(yLine[rl] <= break.top) {
-					abline(h=yLine[rl],lwd=1.5,col=colLine[rl],lty=2)
-				} else {
-					abline(h=rescale(yLine[rl]),lwd=1.5,col=colLine[rl],lty=2)
-				}
-			}
-		}
-	# Version with one y axis / no break in axis
-	} else {
-		plot(x,y,xaxt="n",pch=plotdata$pch,cex=0.9,cex.lab=1.5,cex.axis=1.5,xaxt="n",
-			col=plotdata$pcol,ylab=expression(-log[10]*italic(P)),xlab="",bty="o",
-			main=gsub("_"," ",paste0(maintitle,"\n",format(Nmarkers,big.mark=",",scientific=F),
-				" variants")),
-			ylim=c(0,ceiling(max(maxY+1,yLine))))
-		axis(1,at=chrLab[seq(1,length(chrLab),by=2)],
-			labels=chrs[1:length(chrLab)][seq(1,length(chrLab),by=2)],
-			las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=2)
-		axis(1,at=chrLab[seq(2,length(chrLab),by=2)],
-			labels=chrs[1:length(chrLab)][seq(2,length(chrLab),by=2)],
-			las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=0)
-		# plot highlighted regions on top
-		for(hcol in unique(plotdata$highlightColor)){
-			extraDot <- plotdata[which(plotdata$highlightColor == hcol),]
-			points(extraDot$plotPos,extraDot$LOG10P,pch=20,col=hcol, cex=0.9)
-		}
-		# genome-wide significance linn
-		if(length(yLine)>0) abline(h=yLine,lwd=1.5,col=colLine,lty=2)
-	}
+	} 
+	
+	if(length(yLine)>0) abline(h=sapply(yLine,rescaleY),lwd=1.5,col=colLine,lty=2)	
 
-	# Add legend if candidate regions are present 
-	ltext <- unique(candidateRegions[,c("COL","LEGENDTEXT")])
-	if(dim(ltext)[1]>0) legend("topleft",legend=ltext$LEGENDTEXT,col=ltext$COL,pch=15,bty="n")
+	# label top regions
+	if(nrow(regionLabels)>0){
+		for(hcol in unique(regionLabels$COL)){
+			plotdata[highlightColor == hcol,points(x,y,pch=20,col=hcol, cex=0.9)]
+		}	
+		# non-overlapping labels
+		regionLabels[,addTextLabels(xCoords = `x`, yCoords = `y`, labels = `NearestGene`, 
+			col.label = "black", col.line = t_black, cex.label = 1, col.background = t_white)]
+	}
+	
+	regionLabels[,`:=`(x=NULL,y=NULL)]
+	print(regionLabels)
 }
 
 option_list <- list(
@@ -228,7 +281,7 @@ option_list <- list(
   make_option("--pointsize", type="numeric", default=16,
     help="Point size of plots [default=16]"),
   make_option("--hitregion", type="character", default="",
-    help="File with candidate regions, CHROM;START;END;COL;LEGENDTEXT [default='']"),
+    help="File with candidate regions, CHROM;START;END;COL;LABEL [default='']"),
   make_option("--chr", type="character", default="CHR",
     help="name of column with chromosome [default='CHR']"),
   make_option("--pos", type="character", default="POS",
