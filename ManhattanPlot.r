@@ -280,7 +280,7 @@ option_list <- list(
     help="Height Manhattan plot in pixel [default=900]"),
   make_option("--pointsize", type="numeric", default=16,
     help="Point size of plots [default=16]"),
-  make_option("--hitregion", type="character", default="",
+  make_option("--hitregion", type="character", default=NULL,
     help="File with candidate regions, CHROM;START;END;COL;LABEL [default='']"),
   make_option("--chr", type="character", default="CHR",
     help="name of column with chromosome [default='CHR']"),
