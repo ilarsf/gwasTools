@@ -3,10 +3,30 @@
 
 options(stringsAsFactors=F)
 library("optparse")
-library("data.table")
+require("plotrix")
+require("data.table")
+require("RColorBrewer")
+
 t_white <- grDevices::rgb(t(grDevices::col2rgb("white")), alpha = 100, maxColorValue = 255)
 t_black <- grDevices::rgb(t(grDevices::col2rgb("black")), alpha = 75, maxColorValue = 255)
 
+# read very small pvalues and covert to -lop10P values
+Ptolog10 <- function(P) {
+    if (as.numeric(P) > 0) {
+        log10P <- -log10(as.numeric(P))
+    } else if (is.na(P) | as.numeric(P) > 1 | as.numeric(P) < 0) {
+        log10P <- NA
+    } else {
+        part1 <- as.numeric(gsub("(.+)[Ee]-.+", "\\1", P))
+        part1 <- -log10(as.numeric(part1) * 0.1)
+        part2 <- as.numeric(gsub(".+[Ee]-(.+)", "\\1", P))
+        part2 <- part2 - 1
+        log10P <- part1 + part2
+    }
+    return(as.numeric(log10P))
+}
+
+# see latest version: /net/junglebook/home/larsf/Rfunctions/function.getNearestGene.r
 getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 	position="position",build="37"){
 	require(Map2NCBI)
@@ -19,10 +39,15 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 		file.genelist37 <- path.expand("~/GeneList_Homo_sapiens_BUILD.37.3.txt")
 	
 		if(!file.exists(file.genelist37)){
-			genelist37 <- GetGeneList_v11("Homo sapiens",build="BUILD.37.3",savefiles=F,destfile=tempfile())
-			2
-			y
-			fwrite(genelist37,file.genelist37,sep="\t",quote=T)
+			stop(paste0(
+				"\nPlease run the following code line by line in an interactive R session\n\n",
+				"library(Map2NCBI)\n",
+				"library(data.table)\n",				
+				"file.genelist37 <- path.expand(\"~/GeneList_Homo_sapiens_BUILD.37.3.txt\")\n",
+				"genelist37 <- GetGeneList_v11(\"Homo sapiens\",build=\"BUILD.37.3\",savefiles=F,destfile=tempfile())\n",
+				"2\n",
+				"y\n",
+				"fwrite(genelist37,file.genelist37,sep=\"\\t\",quote=T)"))
 		}
 		genelist37 <- fread(file.genelist37)
 		genelist37 <- genelist37[feature_type == "GENE",]
@@ -35,10 +60,15 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 	if(build == "38"){
 		file.genelist38 <- path.expand("~/GeneList_Homo_sapiens_BUILD.38.txt")
 		if(!file.exists(file.genelist38)){
-			genelist38 <- GetGeneList("Homo sapiens",savefiles=F,destfile=tempfile())
-			y
-			y
-			fwrite(genelist38,file.genelist38,sep="\t",quote=T)
+			stop(paste0(
+				"\nPlease run the following code line by line in an interactive R session\n\n",
+				"library(Map2NCBI)\n",
+				"library(data.table)\n",
+				"file.genelist38 <- path.expand(\"~/GeneList_Homo_sapiens_BUILD.38.txt\")\n",
+				"genelist38 <- GetGeneList_v11(\"Homo sapiens\",savefiles=F,destfile=tempfile())\n",
+				"y\n",
+				"y\n",
+				"fwrite(genelist38,file.genelist38,sep=\"\\t\",quote=T)"))
 		}
 		genelist38 <- fread(file.genelist38)
 		genelist38 <- genelist38[feature == "gene" &
@@ -55,13 +85,9 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 
 # main function to generate Manhattan plots
 ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
-	chr="CHROM",pos="POS",pvalue="PVALUE",build="37",
+	chr="CHROM",pos="POS",pvalue="PVALUE",build="37",labelPeaks=T,regionSize=500000,
 	log10p=F,sigthreshold="5E-8",coltop=F,maintitle="",DTthreads=1) {
 
-	options(stringsAsFactors=F)
-	require("plotrix")
-	require("data.table")
-	require("RColorBrewer")
 	# devtools::install_github('JosephCrispell/basicPlotteR')
 	require(basicPlotteR)
 	setDTthreads(DTthreads)
@@ -75,13 +101,23 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 	colLine <- c("red")
 
 	if(!log10p) {
-		res[,LOG10P:=-log10(PVALUE)]
+		res[,LOG10P:=-log10(as.numeric(PVALUE))]
+		res[as.numeric(PVALUE) == 0,LOG10P:=sapply(PVALUE,Ptolog10)]
 	} else {
+		res[,PVALUE:=as.numeric(PVALUE)]
 		setnames(res,"PVALUE","LOG10P")
 	}
 
 	res <- na.omit(res[!is.infinite(LOG10P),.(CHROM,POS,LOG10P)])
-	res[,numCHR:=as.numeric(gsub("chr","",gsub("^X$|^XY$","23",CHROM)))]
+	
+	chrs <- c(1:22,"X",23,"Y",24,"XY",25,"MT",26)
+	chrs <- c(chrs,paste0("chr",chrs))
+	chrs <- chrs[which(chrs %in% unique(res$CHROM))]	
+	
+	res[,`:=`(CHROM=as.character(CHROM),
+		POS=as.numeric(POS),
+		numCHR=as.numeric(gsub("chr","",as.character(
+			factor(CHROM,levels=chrs,labels=1:length(chrs))))))]
 
 	res <- res[order(numCHR,POS),]
 	Nmarkers <- nrow(res)
@@ -93,12 +129,12 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 		hits[,`:=`(POS0=POS-1,CHROM=gsub("chr","",CHROM))]
 		x <- as.numeric(hits$POS)
 		y <- hits$numCHR
-		start = c(1, which(diff(y) != 0 | diff(x) <= -500000 | diff(x) >= 500000) + 1)
+		start = c(1, which(diff(y) != 0 | diff(x) <= -regionSize | diff(x) >= regionSize) + 1)
 		end = c(start - 1, length(x))
 		candidateRegions <- data.table(
-			'CHROM'=hits$CHROM[start],
-			'START'=hits$POS[start] - 500000,
-			'END'=hits$POS[end] + 500000,
+			'CHROM'=as.character(hits$CHROM[start]),
+			'START'=hits$POS[start] - regionSize,
+			'END'=hits$POS[end] + regionSize,
 			'COL'="blue",
 			'MARKER'=1:length(start),
 			'POS'=NA)
@@ -109,39 +145,36 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			candidateRegions$POS[r] <- rhits$POS[which.max(rhits$LOG10P)]
 		}
 
-		# add nearest GENENAME
-		candidateRegions <- getNearestGene(input=candidateRegions,Marker="MARKER",chromosome="CHROM",position="POS",build=build)
-		candidateRegions <- candidateRegions[,.(CHROM,START,END,COL,POS,LABEL,RelativeToGene)]	
+		if(labelPeaks){
+			# add nearest GENENAME
+			candidateRegions <- getNearestGene(input=candidateRegions,Marker="MARKER",chromosome="CHROM",position="POS",build=build)
+			candidateRegions <- candidateRegions[,.(CHROM,START,END,COL,POS,LABEL,RelativeToGene)]
+		} else {
+			candidateRegions$LABEL <- NA
+		}
 	}
 
-	# Thinning; remove 95% of variants with P > 0.05
-	prethin1 <- which(res$LOG10P >= -log10(0.05) & res$LOG10P <= 6)
-	prethin2 <- which(res$LOG10P < -log10(0.05))
-	prethin2 <- prethin2[order(rnorm(length(prethin2)))[1:(length(prethin2)/20)]]
-	prethin <- c(prethin1,prethin2)
+	# Thinning; remove 95% of variants with P > 0.05	
+	thinned <- res[
+		(LOG10P >= -log10(0.05) & LOG10P <= 6) |
+		(LOG10P < -log10(0.05) & sample(c(T,rep(F,19)),.N,replace=T)),
+			.(CHROM,POS,LOG10P,numCHR)]
 
 	# Additional thinning using unique after rounding position and p-value
-	thinned <- prethin[which(!duplicated(data.frame(res$CHROM[prethin],
-					round(res$POS[prethin]/10000),round(res$LOG10P[prethin],1))))]
+	# keep all SNPs with p < 1E-6
+	plotdata <- rbind(
+		res[LOG10P > 6,],
+		thinned[!duplicated(paste(CHROM,round(POS/1000),round(LOG10P,1))),])
+	plotdata <- plotdata[order(numCHR,POS),.(CHROM,POS,LOG10P,numCHR)]
 
-	# Plot all SNPs with p < 1E-6
-	keepTop <- which(res$LOG10P > 6)
-	thinned <- sort(c(keepTop,thinned))
+	# Prepare plot data / two-colored chromosomes
+	plotdata[,`:=`(
+		pch=20,
+		highlightColor=as.character(NA),
+		pcol = ifelse(numCHR %%2 == 0, "grey40","grey60"))]
 
-	# Prepare plot data / two-colored chromosomes / with fixed gap
-	plotdata <- res[thinned,.(CHROM,POS,LOG10P)]
-	plotdata[,`:=`(pch=20,highlightColor=as.character(NA))]
-	
-	chrs <- c(1:22,"X",23,"Y",24,"XY",25,"MT",26)
-	chrs <- c(chrs,paste0("chr",chrs))
-	chrs <- chrs[which(chrs %in% plotdata$CHROM)]
-	chrNr <- as.numeric(gsub("chr","",as.character(factor(plotdata$CHROM,levels=chrs,labels=1:length(chrs)))))
-	chrColors <- c("grey40","grey60")[(1:length(chrs)%%2)+1]
-	names(chrColors) <- chrs
-
-	plotdata[,pcol:=chrColors[CHROM]]
-	plotdata[,chrNr:=chrNr]
-
+	# covert pos on chromosomes to continuous plot positions
+	chrGAP <- 1E7
 	endPos <- 0
 	plotPos <- numeric(0)
 	chrLab <- numeric(0)
@@ -155,9 +188,8 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 	}
 	plotdata[,x:=plotPos]
 	
-	chrs <- gsub("chr","",chrs)
-
 	# update numeric non-autosomal chromosome names
+	chrs <- gsub("chr","",chrs)
 	fixChr <- c(1:22,"X","Y","XY","MT","X","Y","XY","MT")
 	names(fixChr) <- c(1:26,"X","Y","XY","MT")
 	chrs <- fixChr[chrs]
@@ -183,7 +215,6 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			}
 		}
 	}
-
 
 	# Manhattan plot
 	par(mar=c(5.1,5.1,4.1,1.1),las=1)
@@ -256,13 +287,14 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 		for(hcol in unique(regionLabels$COL)){
 			plotdata[highlightColor == hcol,points(x,y,pch=20,col=hcol, cex=0.9)]
 		}	
+
 		# non-overlapping labels
-		regionLabels[,addTextLabels(xCoords = `x`, yCoords = `y`, labels = `LABEL`, 
-			col.label = "black", col.line = t_black, cex.label = 1, col.background = t_white)]
-	}
-	
-	regionLabels[,`:=`(x=NULL,y=NULL)]
-	print(regionLabels)
+		if(labelPeaks)
+			regionLabels[,addTextLabels(xCoords = `x`, yCoords = `y`, labels = `LABEL`, 
+				col.label = "black", col.line = t_black, cex.label = 1, col.background = t_white)]
+	}	
+	regionLabels[,`:=`(x=NULL,y=NULL)]	
+	return(regionLabels)
 }
 
 option_list <- list(
