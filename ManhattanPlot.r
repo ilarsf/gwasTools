@@ -35,29 +35,32 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 	markers <- input[,c(Marker,chromosome,position),with=F]
 	names(markers) <- c("Marker","chromosome","position")
 
-	file.genelist <- path.expand(paste0("~/GeneList_",build,".txt"))
+	file.genelist <- path.expand(paste0("~/ExonList_",build,".txt"))
 
 	if(!file.exists(file.genelist)){
-		urlprefix <- paste0("http://hgdownload.soe.ucsc.edu/goldenPath/",build,"/database/ncbiRefSeq")
-		outprefix <- paste0("~/goldenPath_",build,"_ncbiRefSeq")
-		download.file(paste0(urlprefix,".txt.gz"),destfile=paste0(outprefix,".txt.gz"))
-		download.file(paste0(urlprefix,".sql"),destfile=paste0(outprefix,".sql"))
+		files.url <- paste0("http://hgdownload.soe.ucsc.edu/goldenPath/",build,
+			"/database/ncbiRefSeq",c(".sql",".txt.gz"))
+		files.temp <- tempfile(fileext=c(".sql",".gz"))
+		
+		download.file(files.url[2],destfile=files.temp[2])
+		download.file(files.url[1],destfile=files.temp[1])
 
-		header <- readLines(paste0(outprefix,".sql"))
+		header <- readLines(files.temp[1])
 		header <- header[(grep("^CREATE TABLE",header)+1):(grep("^  KEY",header)[1]-1)]
-		genetable <- fread(paste0(outprefix,".txt.gz"),col.names=gsub(".+`(.+)`.+","\\1",header))
+		genetable <- fread(files.temp[2],col.names=gsub(".+`(.+)`.+","\\1",header))
 		genetable[,chrom:=gsub("^chr","",chrom)]
 		genetable <- unique(genetable[chrom %in% c(1:22,"X","Y","M") & !grepl("^X",name),
-			.(name2,chrom,txStart,txEnd)])
-		setnames(genetable,c("name2","chrom","txStart","txEnd"),
-			c("FeatureName","chromosome","start","end"))
-
-		geneStart <- genetable[order(chromosome,start),.(FeatureName,chromosome,start)]
-		geneStart <- geneStart[!duplicated(FeatureName),]
-		geneEnd <- genetable[order(chromosome,-end),.(FeatureName,chromosome,end)]
-		geneEnd <- geneEnd[!duplicated(FeatureName),]
-		genetable <- merge(geneStart,geneEnd,by=c("FeatureName","chromosome"))
-		genetable <- genetable[order(chromosome,start,end),]
+			.(name2,chrom,exonStarts,exonEnds)])
+		
+		exontable <- apply(genetable,1,function(x) {
+			data.table(
+				'FeatureName'=x[["name2"]],
+				'chromosome'=x[["chrom"]],
+				'start'=as.numeric(strsplit(x[["exonStarts"]],",")[[1]]),
+				'end'=as.numeric(strsplit(x[["exonEnds"]],",")[[1]]))
+		})
+		genetable <- unique(rbindlist(exontable))		
+		genetable <- genetable[order(chromosome,`start`,`end`),]
 		fwrite(genetable,file.genelist,sep="\t",quote=T)
 	} else {
 		genetable <- fread(file.genelist,sep="\t")
