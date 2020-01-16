@@ -28,64 +28,53 @@ Ptolog10 <- function(P) {
 
 # see latest version: /net/junglebook/home/larsf/Rfunctions/function.getNearestGene.r
 getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
-	position="position",build="37"){
+	position="position",build="hg19"){
 	require(Map2NCBI)
 	require(data.table)
 
 	markers <- input[,c(Marker,chromosome,position),with=F]
 	names(markers) <- c("Marker","chromosome","position")
 
-	if(build == "37"){
-		file.genelist37 <- path.expand("~/GeneList_Homo_sapiens_BUILD.37.3.txt")
-	
-		if(!file.exists(file.genelist37)){
-			stop(paste0(
-				"\nPlease run the following code line by line in an interactive R session\n\n",
-				"library(Map2NCBI)\n",
-				"library(data.table)\n",				
-				"file.genelist37 <- path.expand(\"~/GeneList_Homo_sapiens_BUILD.37.3.txt\")\n",
-				"genelist37 <- GetGeneList_v11(\"Homo sapiens\",build=\"BUILD.37.3\",savefiles=F,destfile=tempfile())\n",
-				"2\n",
-				"y\n",
-				"fwrite(genelist37,file.genelist37,sep=\"\\t\",quote=T)"))
-		}
-		genelist37 <- fread(file.genelist37)
-		genelist37 <- genelist37[feature_type == "GENE",]
-		MappedGenes <- MapMarkers(genelist37, markers, nAut=22, other = c("X"),savefiles=F)
-		MappedGenes <- MappedGenes[,.(Marker,chromosome,position,feature_name,`Inside?`)]
-		setnames(MappedGenes,c("Marker","chromosome","position","feature_name","Inside?"),
-			c(Marker,chromosome,position,"LABEL","RelativeToGene"))
+	file.genelist <- path.expand(paste0("~/GeneList_",build,".txt"))
+
+	if(!file.exists(file.genelist)){
+		urlprefix <- paste0("http://hgdownload.soe.ucsc.edu/goldenPath/",build,"/database/ncbiRefSeq")
+		outprefix <- paste0("~/goldenPath_",build,"_ncbiRefSeq")
+		download.file(paste0(urlprefix,".txt.gz"),destfile=paste0(outprefix,".txt.gz"))
+		download.file(paste0(urlprefix,".sql"),destfile=paste0(outprefix,".sql"))
+
+		header <- readLines(paste0(outprefix,".sql"))
+		header <- header[(grep("^CREATE TABLE",header)+1):(grep("^  KEY",header)[1]-1)]
+		genetable <- fread(paste0(outprefix,".txt.gz"),col.names=gsub(".+`(.+)`.+","\\1",header))
+		genetable[,chrom:=gsub("^chr","",chrom)]
+		genetable <- unique(genetable[chrom %in% c(1:22,"X","Y","M") & !grepl("^X",name),
+			.(name2,chrom,txStart,txEnd)])
+		setnames(genetable,c("name2","chrom","txStart","txEnd"),
+			c("FeatureName","chromosome","start","end"))
+
+		geneStart <- genetable[order(chromosome,start),.(FeatureName,chromosome,start)]
+		geneStart <- geneStart[!duplicated(FeatureName),]
+		geneEnd <- genetable[order(chromosome,-end),.(FeatureName,chromosome,end)]
+		geneEnd <- geneEnd[!duplicated(FeatureName),]
+		genetable <- merge(geneStart,geneEnd,by=c("FeatureName","chromosome"))
+		genetable <- genetable[order(chromosome,start,end),]
+		fwrite(genetable,file.genelist,sep="\t",quote=T)
+	} else {
+		genetable <- fread(file.genelist,sep="\t")
 	}
 
-	if(build == "38"){
-		file.genelist38 <- path.expand("~/GeneList_Homo_sapiens_BUILD.38.txt")
-		if(!file.exists(file.genelist38)){
-			stop(paste0(
-				"\nPlease run the following code line by line in an interactive R session\n\n",
-				"library(Map2NCBI)\n",
-				"library(data.table)\n",
-				"file.genelist38 <- path.expand(\"~/GeneList_Homo_sapiens_BUILD.38.txt\")\n",
-				"genelist38 <- GetGeneList_v11(\"Homo sapiens\",savefiles=F,destfile=tempfile())\n",
-				"y\n",
-				"y\n",
-				"fwrite(genelist38,file.genelist38,sep=\"\\t\",quote=T)"))
-		}
-		genelist38 <- fread(file.genelist38)
-		genelist38 <- genelist38[feature == "gene" &
-			seq_type %in% c("chromosome","mitochondrion") &
-			`attributes` != "pseudo",]
-		MappedGenes <- MapMarkers(genelist38, markers, nAut=22, other = c("X"),savefiles=F)
-		MappedGenes <- MappedGenes[,.(Marker,chromosome,position,symbol,`Inside?`)]
-		setnames(MappedGenes,c("Marker","chromosome","position","symbol","Inside?"),
-			c(Marker,chromosome,position,"LABEL","RelativeToGene"))
-	}
+	MappedGenes <- MapMarkers(genetable, markers, nAut=22, other = c("X"),savefiles=F)
+	MappedGenes <- MappedGenes[,.(Marker,chromosome,position,FeatureName,`Inside?`)]
+	setnames(MappedGenes,c("Marker","chromosome","position","FeatureName","Inside?"),
+		c(Marker,chromosome,position,"LABEL","RelativeToGene"))
+
 	output <- merge(input,MappedGenes,by=c(Marker,chromosome,position))
 	return(output)
 }
 
 # main function to generate Manhattan plots
 ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
-	chr="CHROM",pos="POS",pvalue="PVALUE",build="37",labelPeaks=T,regionSize=500000,
+	chr="CHROM",pos="POS",pvalue="PVALUE",build="hg19",labelPeaks=T,regionSize=500000,
 	log10p=F,sigthreshold="5E-8",coltop=F,maintitle="",DTthreads=1) {
 
 	# devtools::install_github('JosephCrispell/basicPlotteR')
@@ -328,6 +317,8 @@ option_list <- list(
     help="Highlight only markers above the significance threshold [default=F]"),    	
   make_option("--maintitle", type="character", default="",
     help="Plot title"),
+  make_option("--build", type="character", default="hg19",
+    help="Genome build [default='hg19']"),
   make_option("--threads", type="numeric", default=1,
     help="DTthreads") 
 )
@@ -341,5 +332,6 @@ print(opt)
 gwas <- fread(opt$input,select=c(opt$chr,opt$pos,opt$pvalue),col.names=c("CHROM","POS","PVALUE"))
 png(filename = paste0(opt$prefix,"_Manhattan.png"), width = opt$width, height = opt$height, pointsize = opt$pointsize)
 	ManhattanPlot(res=gwas,top.size=opt$top.size,break.top=opt$break.top,hitregion=opt$hitregion,
-		log10p=opt$log10p,sigthreshold=opt$sigthreshold,coltop=opt$coltop,maintitle=opt$maintitle,DTthreads=opt$threads)
+		log10p=opt$log10p,sigthreshold=opt$sigthreshold,coltop=opt$coltop,maintitle=opt$maintitle,
+		build=opt$build,DTthreads=opt$threads)
 dev.off()
