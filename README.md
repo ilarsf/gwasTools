@@ -4,7 +4,7 @@ A collection of R scripts that might be useful to plot GWAS results.
 
 The following R pakages need to be installed for running these Rscripts:
 
-*optparse, data.table, RColorBrewer, plotrix, pwr, Map2NCBI, basicPlotteR*
+*optparse, data.table, RColorBrewer, plotrix, pwr, Map2NCBI, basicPlotteR, devtools*
 *devtools::install_github('JosephCrispell/basicPlotteR')*
 
 ## QQ Plot
