@@ -34,6 +34,7 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 
 	markers <- input[,c(Marker,chromosome,position),with=F]
 	names(markers) <- c("Marker","chromosome","position")
+	markers[chromosome == "X",chromosome:= 23]
 
 	file.genelist <- path.expand(paste0("~/ExonList_",build,".txt"))
 
@@ -66,8 +67,12 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 		genetable <- fread(file.genelist,sep="\t")
 	}
 
-	MappedGenes <- MapMarkers(genetable, markers, nAut=22, other = c("X"),savefiles=F)
+	MappedGenes <- MapMarkers(genetable, markers, nAut=22, other = c("X","Y"),savefiles=F)
+	
+	
+	
 	MappedGenes <- MappedGenes[,.(Marker,chromosome,position,FeatureName,`Inside?`)]
+	MappedGenes[chromosome == 23,chromosome:="X"]
 	setnames(MappedGenes,c("Marker","chromosome","position","FeatureName","Inside?"),
 		c(Marker,chromosome,position,"LABEL","RelativeToGene"))
 
