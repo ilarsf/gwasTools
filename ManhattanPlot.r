@@ -69,10 +69,10 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 
 	MappedGenes <- MapMarkers(genetable, markers, nAut=22, other = c("X","Y"),savefiles=F)
 	
-	
-	
 	MappedGenes <- MappedGenes[,.(Marker,chromosome,position,FeatureName,`Inside?`)]
-	MappedGenes[chromosome == 23,chromosome:="X"]
+	MappedGenes[chromosome %in% c(23,25),chromosome:="X"]
+	MappedGenes[chromosome == 24,chromosome:="Y"]
+	
 	setnames(MappedGenes,c("Marker","chromosome","position","FeatureName","Inside?"),
 		c(Marker,chromosome,position,"LABEL","RelativeToGene"))
 
@@ -121,8 +121,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 
 	if (!is.null(hitregion)){
 		candidateRegions <- fread(hitregion,sep="\t",header=T)
-	} else {
-		hits <- res[LOG10P >= min(yLine),]
+	} else if(nrow(hits) > 0){
 		hits[,`:=`(POS0=POS-1,CHROM=gsub("chr","",CHROM))]
 		x <- as.numeric(hits$POS)
 		y <- hits$numCHR
@@ -149,6 +148,15 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 		} else {
 			candidateRegions$LABEL <- NA
 		}
+	} else {
+	# empty table if there are no hits
+		candidateRegions <- data.table(
+			'CHROM'=character(0),
+			'START'=numeric(0),
+			'END'=numeric(0),
+			'COL'=character(0),
+			'MARKER'=numeric(0),
+			'POS'=numeric(0))
 	}
 
 	# Thinning; remove 95% of variants with P > 0.05	
