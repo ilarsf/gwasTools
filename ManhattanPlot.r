@@ -119,6 +119,8 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 	res <- res[order(numCHR,POS),]
 	Nmarkers <- nrow(res)
 
+	hits <- res[LOG10P >= min(yLine),]
+	
 	if (!is.null(hitregion)){
 		candidateRegions <- fread(hitregion,sep="\t",header=T)
 	} else if(nrow(hits) > 0){
