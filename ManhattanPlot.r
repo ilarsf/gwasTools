@@ -123,6 +123,12 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 	
 	if (!is.null(hitregion)){
 		candidateRegions <- fread(hitregion,sep="\t",header=T)
+		candidateRegions[,CHROM:=as.character(CHROM)]
+		for(r in 1:nrow(candidateRegions)){
+			rhits <- res[CHROM == candidateRegions$CHROM[r] & 
+				POS >= candidateRegions$START[r] & POS <= candidateRegions$END[r],]
+			candidateRegions$POS[r] <- rhits$POS[which.max(rhits$LOG10P)]
+		}		
 	} else if(nrow(hits) > 0){
 		hits[,`:=`(POS0=POS-1,CHROM=gsub("chr","",CHROM))]
 		x <- as.numeric(hits$POS)
@@ -150,6 +156,10 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 		} else {
 			candidateRegions$LABEL <- NA
 		}
+		
+		fwrite(candidateRegions,"/net/junglebook/home/larsf/GitHub/gwasTools/RegionLabels.txt",sep="\t",quote=F)
+
+		
 	} else {
 	# empty table if there are no hits
 		candidateRegions <- data.table(
@@ -157,8 +167,8 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			'START'=numeric(0),
 			'END'=numeric(0),
 			'COL'=character(0),
-			'MARKER'=numeric(0),
-			'POS'=numeric(0))
+			'POS'=numeric(0),
+			'LABEL'=numeric(0))
 	}
 
 	# Thinning; remove 95% of variants with P > 0.05	
