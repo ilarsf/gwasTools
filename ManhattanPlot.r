@@ -157,9 +157,6 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			candidateRegions$LABEL <- NA
 		}
 		
-		fwrite(candidateRegions,"/net/junglebook/home/larsf/GitHub/gwasTools/RegionLabels.txt",sep="\t",quote=F)
-
-		
 	} else {
 	# empty table if there are no hits
 		candidateRegions <- data.table(
