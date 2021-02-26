@@ -327,6 +327,8 @@ option_list <- list(
     help="Point size of plots [default=16]"),
   make_option("--hitregion", type="character", default=NULL,
     help="File with candidate regions, CHROM;START;END;COL;LABEL [default='']"),
+  make_option("--flankingsize", type="integer", default=500000,
+    help="Flanking region to determine candidate regions, top hit +/- X bp [default=500000]"),
   make_option("--chr", type="character", default="CHR",
     help="name of column with chromosome [default='CHR']"),
   make_option("--pos", type="character", default="POS",
@@ -356,8 +358,9 @@ print(opt)
 gwas <- fread(opt$input,select=c(opt$chr,opt$pos,opt$pvalue),col.names=c("CHROM","POS","PVALUE"))
 png(filename = paste0(opt$prefix,"_Manhattan.png"), width = opt$width, height = opt$height, pointsize = opt$pointsize)
 	candidateRegions <- ManhattanPlot(res=gwas,top.size=opt$top.size,break.top=opt$break.top,hitregion=opt$hitregion,
-		log10p=opt$log10p,sigthreshold=opt$sigthreshold,coltop=opt$coltop,maintitle=opt$maintitle,
+		regionSize=opt$flankingsize,log10p=opt$log10p,sigthreshold=opt$sigthreshold,coltop=opt$coltop,maintitle=opt$maintitle,
 		build=opt$build,DTthreads=opt$threads)
 dev.off()
 
-if(nrow(candidateRegions) > 0) fwrite(candidateRegions,paste0(opt$prefix,"_ManhattanPlot_CandidateRegions.txt"),sep="\t",quote=F)
+if(nrow(candidateRegions) > 0) fwrite(candidateRegions,paste0(opt$prefix,"_ManhattanPlot_",
+	round(opt$flankingsize/1000),"kb_CandidateRegions.txt"),sep="\t",quote=F)
