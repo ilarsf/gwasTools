@@ -360,4 +360,4 @@ png(filename = paste0(opt$prefix,"_Manhattan.png"), width = opt$width, height = 
 		build=opt$build,DTthreads=opt$threads)
 dev.off()
 
-fwrite(candidateRegions,paste0(opt$prefix,"_Manhattan.txt"),sep="\t",quote=F)
+if(nrow(candidateRegions) > 0) fwrite(candidateRegions,paste0(opt$prefix,"_ManhattanPlot_CandidateRegions.txt"),sep="\t",quote=F)
