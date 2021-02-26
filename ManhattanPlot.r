@@ -361,5 +361,3 @@ png(filename = paste0(opt$prefix,"_Manhattan.png"), width = opt$width, height = 
 dev.off()
 
 fwrite(candidateRegions,paste0(opt$prefix,"_Manhattan.txt"),sep="\t",quote=F)
-
-print(candidateRegions)
