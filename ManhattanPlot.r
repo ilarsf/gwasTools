@@ -307,8 +307,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			regionLabels[,addTextLabels(xCoords = `x`, yCoords = `y`, labels = `LABEL`, 
 				col.label = "black", col.line = t_black, cex.label = 1, col.background = t_white)]
 	}	
-	regionLabels[,`:=`(x=NULL,y=NULL)]	
-	return(regionLabels)
+	return(candidateRegions)
 }
 
 option_list <- list(
@@ -356,7 +355,11 @@ print(opt)
 
 gwas <- fread(opt$input,select=c(opt$chr,opt$pos,opt$pvalue),col.names=c("CHROM","POS","PVALUE"))
 png(filename = paste0(opt$prefix,"_Manhattan.png"), width = opt$width, height = opt$height, pointsize = opt$pointsize)
-	ManhattanPlot(res=gwas,top.size=opt$top.size,break.top=opt$break.top,hitregion=opt$hitregion,
+	candidateRegions <- ManhattanPlot(res=gwas,top.size=opt$top.size,break.top=opt$break.top,hitregion=opt$hitregion,
 		log10p=opt$log10p,sigthreshold=opt$sigthreshold,coltop=opt$coltop,maintitle=opt$maintitle,
 		build=opt$build,DTthreads=opt$threads)
 dev.off()
+
+fwrite(candidateRegions,paste0(opt$prefix,"_Manhattan.txt"),sep="\t",quote=F)
+
+print(candidateRegions)
