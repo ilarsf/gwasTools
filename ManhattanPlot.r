@@ -153,6 +153,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			# add nearest GENENAME
 			candidateRegions <- getNearestGene(input=candidateRegions,Marker="MARKER",chromosome="CHROM",position="POS",build=build)
 			candidateRegions <- candidateRegions[,.(CHROM,START,END,COL,POS,LABEL,RelativeToGene)]
+			if(build == "hg38") candidateRegions[,CHROM:=paste0("chr",CHROM)]		
 		} else {
 			candidateRegions$LABEL <- NA
 		}
