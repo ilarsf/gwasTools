@@ -137,8 +137,8 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 		end = c(start - 1, length(x))
 		candidateRegions <- data.table(
 			'CHROM'=as.character(hits$CHROM[start]),
-			'START'=hits$POS[start] - regionSize,
-			'END'=hits$POS[end] + regionSize,
+			'START'=hits$POS[start] - regionSize/2,
+			'END'=hits$POS[end] + regionSize/2,
 			'COL'="blue",
 			'MARKER'=1:length(start),
 			'POS'=NA)
