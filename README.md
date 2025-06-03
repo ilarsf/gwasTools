@@ -19,7 +19,14 @@ Please check out the required/available Rscript parameters by using the followin
 
 ## Manhattan Plot
 
-Fast Manhattan plot script. Please check out the required/available Rscript parameters by using the following command
+Fast Manhattan plot script with **adaptive data thinning** for handling large GWAS datasets efficiently. The script intelligently reduces data points while preserving significant associations.
+
+**New Thinning Features:**
+- `--thinning_mode`: Choose between "adaptive" (default), "random", or disable with `--disable_thinning T`
+- `--thinning_aggressiveness`: Control thinning intensity (0.1=aggressive, 1.0=normal, 2.0=less aggressive)
+- `--thinning_sig_threshold`: Significance threshold for keeping variants (-log10P, default=6)
+
+Please check out the required/available Rscript parameters by using the following command
 
     Rscript ManhattanPlot.r --help
     
@@ -62,6 +69,13 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
     --coltop T \
     --maintitle 'Age-related macular degeneration (Fritsche et al. 2016)' \
     --threads 8
+
+    # Example with custom thinning for large datasets
+    Rscript ManhattanPlot.r \
+    --input large_gwas_results.txt \
+    --prefix LargeGWAS \
+    --thinning_aggressiveness 0.5 \
+    --maintitle 'Large GWAS with aggressive thinning'
  
  
     Rscript PowerPlot.r \
@@ -69,4 +83,4 @@ Fast Manhattan plot script. Please check out the required/available Rscript para
     --cases 500,1000,5000 \
     --controls 1000,2000,10000 \
     --minMAF 0.001 \
-    --alpha 5E-8 
+    --alpha 5E-8
