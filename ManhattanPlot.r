@@ -226,7 +226,7 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			stats[["genome_wide_significant"]] <- list(original = 0, kept = 0)
 		}
 		
-		remaining <- data[-keep_indices]
+		if(length(keep_indices) > 0) remaining <- data[-keep_indices] else remaining <- data
 		
 		if(nrow(remaining) == 0) {
 			stats[["total"]] <- list(original = original_count, kept = nrow(thinned), 
