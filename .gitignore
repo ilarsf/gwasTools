@@ -1,0 +1,65 @@
+# R session and workspace artifacts
+.Rhistory
+.RData
+.RDataTmp
+.Ruserdata
+.Rproj.user/
+*.Rproj
+
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+
+# Local agent adapters
+AGENTS.md
+CLAUDE.md
+agent_specs/
+docs/workflows/agent-workflows.md
+evals/red-team-checklist.md
+.claude/agents/
+.codex/agents/
+
+# Generated plots and reports
+*_QQ.png
+*_Manhattan.png
+*_PowerAnalysis.png
+*_ManhattanPlot_*kb_CandidateRegions.txt
+
+# Keep curated README example images tracked.
+!Example_QQ.png
+!Example_Manhattan.png
+!Example_PowerAnalysis.png
+
+# Large GWAS/genetics data files
+*.bed
+*.bim
+*.fam
+*.bgen
+*.pgen
+*.pvar
+*.psam
+*.vcf
+*.vcf.gz
+*.bcf
+*.gen
+*.sample
+*.dosage
+*.sumstats
+*.sumstats.gz
+*.tsv.gz
+*.txt.gz
+
+# Local reference/download caches
+ExonList_*.txt
+data/gene_positions/
+*.cache
+cache/
+.cache/
+
+# Test and build byproducts
+tmp/
+temp/
+*.tmp
+*.log
+.DS_Store

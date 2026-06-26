@@ -10,35 +10,114 @@ require("RColorBrewer")
 t_white <- grDevices::rgb(t(grDevices::col2rgb("white")), alpha = 100, maxColorValue = 255)
 t_black <- grDevices::rgb(t(grDevices::col2rgb("black")), alpha = 75, maxColorValue = 255)
 
-# read very small pvalues and covert to -lop10P values
-Ptolog10 <- function(P) {
-    if (as.numeric(P) > 0) {
-        log10P <- -log10(as.numeric(P))
-    } else if (is.na(P) | as.numeric(P) > 1 | as.numeric(P) < 0) {
-        log10P <- NA
-    } else {
-        part1 <- as.numeric(gsub("(.+)[Ee]-.+", "\\1", P))
-        part1 <- -log10(as.numeric(part1) * 0.1)
-        part2 <- as.numeric(gsub(".+[Ee]-(.+)", "\\1", P))
-        part2 <- part2 - 1
-        log10P <- part1 + part2
-    }
-    return(as.numeric(log10P))
+stopf <- function(...) stop(sprintf(...), call. = FALSE)
+
+defaultGeneDataDir <- function() {
+	file_arg <- grep("^--file=", commandArgs(FALSE), value = TRUE)
+	if(length(file_arg) == 0) return(file.path("data", "gene_positions"))
+	script_path <- path.expand(sub("^--file=", "", file_arg[1]))
+	return(file.path(dirname(script_path), "data", "gene_positions"))
+}
+
+DEFAULT_GENE_DATA_DIR <- defaultGeneDataDir()
+
+pToLog10 <- function(P, column = "PVALUE") {
+	text <- trimws(as.character(P))
+	num <- suppressWarnings(as.numeric(text))
+	log10P <- rep(NA_real_, length(text))
+	valid <- !is.na(num) & is.finite(num) & num > 0 & num <= 1
+	log10P[valid] <- -log10(num[valid])
+
+	underflow <- !is.na(num) & num == 0 &
+		grepl("^\\+?([0-9]*\\.?[0-9]+)[Ee]-([0-9]+)$", text)
+	if(any(underflow)) {
+		mantissa <- as.numeric(sub("^\\+?([0-9]*\\.?[0-9]+)[Ee]-([0-9]+)$", "\\1", text[underflow]))
+		exponent <- as.numeric(sub("^\\+?([0-9]*\\.?[0-9]+)[Ee]-([0-9]+)$", "\\2", text[underflow]))
+		log10P[underflow] <- exponent - log10(mantissa)
+	}
+
+	invalid <- which(is.na(log10P) | !is.finite(log10P))
+	if(length(invalid) > 0) {
+		stopf("Invalid p-values in column '%s': expected 0 < P <= 1. First invalid row(s): %s",
+			column, paste(head(invalid, 10), collapse = ","))
+	}
+	return(log10P)
+}
+
+validateLog10P <- function(values, column = "PVALUE") {
+	log10P <- suppressWarnings(as.numeric(values))
+	invalid <- which(is.na(log10P) | !is.finite(log10P) | log10P < 0)
+	if(length(invalid) > 0) {
+		stopf("Invalid -log10(P) values in column '%s': expected finite values >= 0. First invalid row(s): %s",
+			column, paste(head(invalid, 10), collapse = ","))
+	}
+	return(log10P)
+}
+
+validatePositiveNumeric <- function(values, column) {
+	num <- suppressWarnings(as.numeric(values))
+	invalid <- which(is.na(num) | !is.finite(num) | num <= 0)
+	if(length(invalid) > 0) {
+		stopf("Invalid %s values: expected finite values > 0. First invalid row(s): %s",
+			column, paste(head(invalid, 10), collapse = ","))
+	}
+	return(num)
+}
+
+parseSigThresholds <- function(sigthreshold) {
+	thresholds <- suppressWarnings(as.numeric(unlist(strsplit(sigthreshold,","))))
+	if(length(thresholds) == 0 || any(is.na(thresholds)) || any(!is.finite(thresholds)) ||
+			any(thresholds <= 0 | thresholds > 1)) {
+		stopf("--sigthreshold must contain comma-separated p-values in (0, 1]")
+	}
+	return(thresholds)
+}
+
+normalizeChromosomes <- function(chrom) {
+	raw <- trimws(as.character(chrom))
+	canon <- toupper(sub("^chr", "", raw, ignore.case = TRUE))
+	canon[canon == "M"] <- "MT"
+	canon[canon == "23"] <- "X"
+	canon[canon == "24"] <- "Y"
+	canon[canon == "25"] <- "XY"
+	canon[canon == "26"] <- "MT"
+	valid <- c(as.character(1:22), "X", "Y", "XY", "MT")
+	invalid <- which(is.na(canon) | canon == "" | !(canon %in% valid))
+	if(length(invalid) > 0) {
+		bad <- unique(raw[invalid])
+		stopf("Unsupported chromosome value(s): %s", paste(head(bad, 10), collapse = ", "))
+	}
+	return(list(CHROM = canon, numCHR = match(canon, valid),
+		levels = valid[valid %in% unique(canon)]))
 }
 
 # see latest version: /net/junglebook/home/larsf/Rfunctions/function.getNearestGene.r
 getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
-	position="position",build="hg19"){
-	require(Map2NCBI)
-	require(data.table)
+	position="position",build="hg19",gene_table="",gene_data_dir=DEFAULT_GENE_DATA_DIR,
+	allow_download=F){
+	if(!requireNamespace("Map2NCBI", quietly = TRUE)) {
+		stopf("Nearest-gene labels require the optional R package 'Map2NCBI'")
+	}
+	file.genelist <- if(!is.null(gene_table) && nzchar(gene_table)) {
+		path.expand(gene_table)
+	} else {
+		file.path(path.expand(gene_data_dir), paste0("ExonList_", build, ".txt"))
+	}
 
 	markers <- input[,c(Marker,chromosome,position),with=F]
 	names(markers) <- c("Marker","chromosome","position")
 	markers[chromosome == "X",chromosome:= 23]
 
-	file.genelist <- path.expand(paste0("~/ExonList_",build,".txt"))
-
 	if(!file.exists(file.genelist)){
+		if(!allow_download) {
+			stopf("Nearest-gene labels require a local gene table: %s. Provide --gene_table, or pass --allow_gene_download T to create it under --gene_data_dir.",
+				file.genelist)
+		}
+		if(!dir.exists(dirname(file.genelist))) {
+			if(!dir.create(dirname(file.genelist), recursive = TRUE, showWarnings = FALSE)) {
+				stopf("Could not create gene table directory: %s", dirname(file.genelist))
+			}
+		}
 		files.url <- paste0("http://hgdownload.soe.ucsc.edu/goldenPath/",build,
 			"/database/ncbiRefSeq",c(".sql",".txt.gz"))
 		files.temp <- tempfile(fileext=c(".sql",".gz"))
@@ -67,7 +146,7 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 		genetable <- fread(file.genelist,sep="\t")
 	}
 
-	MappedGenes <- MapMarkers(genetable, markers, nAut=22, other = c("X","Y"),savefiles=F)
+	MappedGenes <- Map2NCBI::MapMarkers(genetable, markers, nAut=22, other = c("X","Y"),savefiles=F)
 	
 	MappedGenes <- MappedGenes[,.(Marker,chromosome,position,FeatureName,`Inside?`)]
 	MappedGenes[chromosome %in% c(23,25),chromosome:="X"]
@@ -82,10 +161,11 @@ getNearestGene <- function(input,Marker="Marker",chromosome="chromosome",
 
 # main function to generate Manhattan plots
 ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
-	chr="CHROM",pos="POS",pvalue="PVALUE",build="hg19",labelPeaks=T,regionSize=500000,
+	chr="CHROM",pos="POS",pvalue="PVALUE",build="hg19",labelPeaks=F,regionSize=500000,
 	log10p=F,sigthreshold="5E-8",coltop=F,maintitle="",DTthreads=1,
 	thinning_mode="adaptive",thinning_aggressiveness=1.0,thinning_sig_threshold=6,
-	custom_thinning_rates=NULL,disable_thinning=F) {
+	custom_thinning_rates=NULL,disable_thinning=F,gene_table="",
+	gene_data_dir=DEFAULT_GENE_DATA_DIR,allow_gene_download=F,random_seed=1) {
 
 	# devtools::install_github('JosephCrispell/basicPlotteR')
 	require(basicPlotteR)
@@ -94,29 +174,39 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 	if(!is.data.table(res)) res <- as.data.table(res)
 
 	setnames(res,c(chr,pos,pvalue),c("CHROM","POS","PVALUE"),skip_absent=T)
+	missing <- setdiff(c("CHROM","POS","PVALUE"), names(res))
+	if(length(missing) > 0) stopf("Missing required column(s): %s", paste(missing, collapse = ", "))
+
+	thinning_mode <- tolower(thinning_mode)
+	if(!(thinning_mode %in% c("adaptive","random","none"))) {
+		stopf("--thinning_mode must be one of adaptive, random, or none")
+	}
+	if(thinning_mode == "none") disable_thinning <- T
+	if(!is.finite(thinning_aggressiveness) || thinning_aggressiveness <= 0) {
+		stopf("--thinning_aggressiveness must be a finite value > 0")
+	}
+	if(!is.finite(thinning_sig_threshold) || thinning_sig_threshold < 0) {
+		stopf("--thinning_sig_threshold must be a finite value >= 0")
+	}
 
 	# horizontal lines and corresponding colors
-	yLine <- c(-log10(sort(as.numeric(unlist(strsplit(sigthreshold,","))))))
+	yLine <- c(-log10(sort(parseSigThresholds(sigthreshold))))
 	colLine <- c("red")
 
 	if(!log10p) {
-		res[,LOG10P:=-log10(as.numeric(PVALUE))]
-		res[as.numeric(PVALUE) == 0,LOG10P:=sapply(PVALUE,Ptolog10)]
+		res[,LOG10P:=pToLog10(PVALUE)]
 	} else {
-		res[,PVALUE:=as.numeric(PVALUE)]
-		setnames(res,"PVALUE","LOG10P")
+		res[,LOG10P:=validateLog10P(PVALUE)]
 	}
 
-	res <- na.omit(res[!is.infinite(LOG10P),.(CHROM,POS,LOG10P)])
+	chroms <- normalizeChromosomes(res$CHROM)
+	res[,`:=`(CHROM=chroms$CHROM,
+		POS=validatePositiveNumeric(POS, "POS"),
+		numCHR=chroms$numCHR)]
+	res <- res[,.(CHROM,POS,LOG10P,numCHR)]
+	if(nrow(res) == 0) stopf("No valid rows remain after Manhattan input validation")
 	
-	chrs <- c(1:22,"X",23,"Y",24,"XY",25,"MT",26)
-	chrs <- c(chrs,paste0("chr",chrs))
-	chrs <- chrs[which(chrs %in% unique(res$CHROM))]	
-	
-	res[,`:=`(CHROM=as.character(CHROM),
-		POS=as.numeric(POS),
-		numCHR=as.numeric(gsub("chr","",as.character(
-			factor(CHROM,levels=chrs,labels=1:length(chrs))))))]
+	chrs <- chroms$levels
 
 	res <- res[order(numCHR,POS),]
 	Nmarkers <- nrow(res)
@@ -125,14 +215,26 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 	
 	if (!is.null(hitregion)){
 		candidateRegions <- fread(hitregion,sep="\t",header=T)
-		candidateRegions[,CHROM:=as.character(CHROM)]
+		missing_regions <- setdiff(c("CHROM","START","END","COL"), names(candidateRegions))
+		if(length(missing_regions) > 0) {
+			stopf("Candidate-region file is missing required column(s): %s",
+				paste(missing_regions, collapse = ", "))
+		}
+		region_chroms <- normalizeChromosomes(candidateRegions$CHROM)
+		candidateRegions[,`:=`(CHROM=region_chroms$CHROM,
+			START=validatePositiveNumeric(START, "START"),
+			END=validatePositiveNumeric(END, "END"))]
+		if(any(candidateRegions$START > candidateRegions$END)) {
+			stopf("Candidate-region START must be <= END")
+		}
+		if(!("LABEL" %in% names(candidateRegions))) candidateRegions[,LABEL:=NA_character_]
 		for(r in 1:nrow(candidateRegions)){
 			rhits <- res[CHROM == candidateRegions$CHROM[r] & 
 				POS >= candidateRegions$START[r] & POS <= candidateRegions$END[r],]
-			candidateRegions$POS[r] <- rhits$POS[which.max(rhits$LOG10P)]
+			candidateRegions$POS[r] <- if(nrow(rhits) > 0) rhits$POS[which.max(rhits$LOG10P)] else NA_real_
 		}		
 	} else if(nrow(hits) > 0){
-		hits[,`:=`(POS0=POS-1,CHROM=gsub("chr","",CHROM))]
+		hits[,POS0:=POS-1]
 		x <- as.numeric(hits$POS)
 		y <- hits$numCHR
 		start = c(1, which(diff(y) != 0 | diff(x) <= -regionSize | diff(x) >= regionSize) + 1)
@@ -153,9 +255,10 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 
 		if(labelPeaks){
 			# add nearest GENENAME
-			candidateRegions <- getNearestGene(input=candidateRegions,Marker="MARKER",chromosome="CHROM",position="POS",build=build)
+			candidateRegions <- getNearestGene(input=candidateRegions,Marker="MARKER",chromosome="CHROM",
+				position="POS",build=build,gene_table=gene_table,gene_data_dir=gene_data_dir,
+				allow_download=allow_gene_download)
 			candidateRegions <- candidateRegions[,.(CHROM,START,END,COL,POS,LABEL,RelativeToGene)]
-			if(build == "hg38" & grepl("chr", res[1, CHROM])) candidateRegions[,CHROM:=paste0("chr",CHROM)]		
 		} else {
 			candidateRegions$LABEL <- NA
 		}
@@ -195,8 +298,8 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 	res[,x:=plotPos]
 
 	# Now calculate plot parameters for visual-aware thinning
-	plot_width_bp <- max(plotPos) - min(plotPos)  # Total genomic span in plot units
-	plot_height_log10p <- max(res$LOG10P) - min(res$LOG10P)  # Total p-value span
+	plot_width_bp <- max(1, max(plotPos) - min(plotPos))  # Total genomic span in plot units
+	plot_height_log10p <- max(1, max(res$LOG10P) - min(res$LOG10P))  # Total p-value span
 	
 	# Estimate visual resolution (approximate pixels per point)
 	# Assuming typical plot dimensions and point size
@@ -343,8 +446,14 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			pcol = ifelse(numCHR %%2 == 0, "grey40","grey60"))]
 	} else if(thinning_mode == "random") {
 		# Simple random thinning
-		n_keep <- round(nrow(res) * thinning_aggressiveness * 0.1)  # aggressiveness as percentage
-		keep_indices <- sample(nrow(res), min(n_keep, nrow(res)))
+		if(!is.null(random_seed) && !is.na(random_seed)) set.seed(random_seed)
+		retention_threshold <- min(thinning_sig_threshold, min(yLine))
+		must_keep <- which(res$LOG10P >= retention_threshold)
+		n_keep <- max(1, round(nrow(res) * thinning_aggressiveness * 0.1))  # aggressiveness as percentage
+		candidate_indices <- setdiff(seq_len(nrow(res)), must_keep)
+		n_sample <- max(0, min(n_keep - length(must_keep), length(candidate_indices)))
+		sampled <- if(n_sample > 0) sample(candidate_indices, n_sample) else integer(0)
+		keep_indices <- sort(unique(c(must_keep, sampled)))
 		plotdata <- res[keep_indices]
 		cat(sprintf("\n=== RANDOM THINNING ===\nKept %s of %s variants (%.1f%%)\n========================\n\n",
 			format(nrow(plotdata), big.mark=","), format(nrow(res), big.mark=","),
@@ -355,7 +464,8 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			pcol = ifelse(numCHR %%2 == 0, "grey40","grey60"))]
 	} else {
 		# Adaptive thinning (default)
-		thinning_result <- adaptiveThinning(res, sig_threshold = thinning_sig_threshold, 
+		retention_threshold <- min(thinning_sig_threshold, min(yLine))
+		thinning_result <- adaptiveThinning(res, sig_threshold = retention_threshold,
 											aggressiveness = thinning_aggressiveness, 
 											custom_rates = custom_thinning_rates)
 		plotdata <- thinning_result$data
@@ -395,6 +505,19 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 			highlightColor=as.character(NA),
 			pcol = ifelse(numCHR %%2 == 0, "grey40","grey60"))]
 	}
+
+	if(nrow(candidateRegions) > 0 && "POS" %in% names(candidateRegions)) {
+		peakKeys <- unique(candidateRegions[!is.na(POS),.(CHROM,POS)])
+		if(nrow(peakKeys) > 0) {
+			peakRows <- merge(res, peakKeys, by=c("CHROM","POS"))
+			if(nrow(peakRows) > 0) {
+				plotKeys <- paste(plotdata$CHROM, plotdata$POS, sep=":")
+				peakRows <- peakRows[!(paste(CHROM, POS, sep=":") %in% plotKeys)]
+				if(nrow(peakRows) > 0) plotdata <- rbind(plotdata, peakRows, fill=T)
+			}
+		}
+	}
+	if(nrow(plotdata) == 0) stopf("No markers remain to plot after thinning")
 	
 	plotdata <- plotdata[order(numCHR, POS)]
 
@@ -493,12 +616,16 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 		" variants")))]
 
 	# add axes and axis labels
-	axis(1,at=chrLab[seq(1,length(chrLab),by=2)],
-		labels=chrs[1:length(chrLab)][seq(1,length(chrLab),by=2)],
+	oddChr <- seq(1,length(chrLab),by=2)
+	axis(1,at=chrLab[oddChr],
+		labels=chrs[1:length(chrLab)][oddChr],
 		las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=2)
-	axis(1,at=chrLab[seq(2,length(chrLab),by=2)],
-		labels=chrs[1:length(chrLab)][seq(2,length(chrLab),by=2)],
-		las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=0)
+	if(length(chrLab) >= 2) {
+		evenChr <- seq(2,length(chrLab),by=2)
+		axis(1,at=chrLab[evenChr],
+			labels=chrs[1:length(chrLab)][evenChr],
+			las=1,tick=F,cex.axis=1.5,cex.lab=1.5,line=0)
+	}
 	axis(side=2,at=sapply(lab,rescaleY),labels=lab,cex.axis=1.5,cex.lab=1.5)
 
 	if(addbreak){
@@ -541,11 +668,11 @@ option_list <- list(
   make_option("--pointsize", type="numeric", default=16,
     help="Point size of plots [default=16]"),
   make_option("--hitregion", type="character", default=NULL,
-    help="File with candidate regions, CHROM;START;END;COL;LABEL [default='']"),
+    help="Tab-delimited candidate regions with CHROM, START, END, COL, optional LABEL [default='']"),
   make_option("--flankingsize", type="integer", default=500000,
     help="Flanking region to determine candidate regions, top hit +/- X bp [default=500000]"),
-  make_option("--chr", type="character", default="CHR",
-    help="name of column with chromosome [default='CHR']"),
+  make_option("--chr", type="character", default="CHROM",
+    help="name of column with chromosome [default='CHROM']"),
   make_option("--pos", type="character", default="POS",
     help="name of column with position [default='POS']"),
   make_option("--pvalue", type="character", default="PVALUE",
@@ -560,18 +687,28 @@ option_list <- list(
     help="Plot title"),
   make_option("--build", type="character", default="hg19",
     help="Genome build [default='hg19']"),
+  make_option("--labelPeaks", type="logical", default=F,
+    help="Label significant Manhattan peaks using a local gene table; may require optional Map2NCBI [default=F]"),
+  make_option("--gene_table", type="character", default="",
+    help="Local exon/gene table for --labelPeaks; overrides --gene_data_dir when provided [default='']"),
+  make_option("--gene_data_dir", type="character", default=DEFAULT_GENE_DATA_DIR,
+    help="Directory for default ExonList_<build>.txt cache used by --labelPeaks [default='%default']"),
+  make_option("--allow_gene_download", type="logical", default=F,
+    help="Allow UCSC download to create a missing gene table when labeling peaks [default=F]"),
   make_option("--threads", type="numeric", default=1,
     help="DTthreads"),
   make_option("--thinning_mode", type="character", default="adaptive",
     help="Thinning mode: adaptive, random, or none [default='adaptive']"),
   make_option("--thinning_aggressiveness", type="numeric", default=1.0,
-    help="Thinning aggressiveness: 0.1=very aggressive, 1.0=normal, 2.0=less aggressive [default=1.0]"),
+    help="Thinning retention control: 0.25=preview/fewer background points, 1.0=default, 2.0=dense/more background points [default=1.0]"),
   make_option("--thinning_sig_threshold", type="numeric", default=6,
     help="Significance threshold for thinning (-log10P) [default=6]"),
   make_option("--disable_thinning", type="logical", default=F,
     help="Disable all thinning and plot all variants [default=F]"),
   make_option("--custom_thinning_rates", type="character", default=NULL,
-    help="Custom thinning rates as comma-separated values: very_ns,ns,weak,moderate,strong,very_strong [default=NULL]")
+    help="Custom thinning rates as comma-separated values: very_ns,ns,weak,moderate,strong,very_strong [default=NULL]"),
+  make_option("--random_seed", type="integer", default=1,
+    help="Random seed used by --thinning_mode random [default=1]")
 )
 
 parser <- OptionParser(usage="%prog [options]", option_list=option_list)
@@ -585,6 +722,9 @@ custom_rates <- NULL
 if(!is.null(opt$custom_thinning_rates)) {
 	rates_vector <- as.numeric(strsplit(opt$custom_thinning_rates, ",")[[1]])
 	if(length(rates_vector) == 6) {
+		if(any(is.na(rates_vector)) || any(rates_vector < 0 | rates_vector > 1)) {
+			stop("Custom thinning rates must be numeric values between 0 and 1", call. = FALSE)
+		}
 		custom_rates <- c("very_ns" = rates_vector[1], "ns" = rates_vector[2], 
 						  "weak" = rates_vector[3], "moderate" = rates_vector[4],
 						  "strong" = rates_vector[5], "very_strong" = rates_vector[6],
@@ -594,13 +734,34 @@ if(!is.null(opt$custom_thinning_rates)) {
 	}
 }
 
-gwas <- fread(opt$input,select=c(opt$chr,opt$pos,opt$pvalue),col.names=c("CHROM","POS","PVALUE"))
+input_header <- names(fread(opt$input,nrows=0))
+if(!(opt$chr %in% input_header) && opt$chr == "CHROM" && "CHR" %in% input_header) {
+	warning("Using legacy chromosome column 'CHR'; prefer --chr CHROM or a CHROM column", call. = FALSE)
+	opt$chr <- "CHR"
+}
+missing_input <- setdiff(c(opt$chr,opt$pos,opt$pvalue), input_header)
+if(length(missing_input) > 0) {
+	stop(sprintf("Input file is missing required column(s): %s", paste(missing_input, collapse = ", ")),
+		call. = FALSE)
+}
+
+gwas <- fread(opt$input,select=c(opt$chr,opt$pos,opt$pvalue),
+	colClasses=setNames("character", opt$pvalue))
 png(filename = paste0(opt$prefix,"_Manhattan.png"), width = opt$width, height = opt$height, pointsize = opt$pointsize)
+tryCatch({
 	candidateRegions <- ManhattanPlot(res=gwas,top.size=opt$top.size,break.top=opt$break.top,hitregion=opt$hitregion,
-		regionSize=opt$flankingsize,log10p=opt$log10p,sigthreshold=opt$sigthreshold,coltop=opt$coltop,maintitle=opt$maintitle,
-		build=opt$build,DTthreads=opt$threads,thinning_mode=opt$thinning_mode,
+		chr=opt$chr,pos=opt$pos,pvalue=opt$pvalue,regionSize=opt$flankingsize,
+		log10p=opt$log10p,sigthreshold=opt$sigthreshold,coltop=opt$coltop,maintitle=opt$maintitle,
+		build=opt$build,labelPeaks=opt$labelPeaks,gene_table=opt$gene_table,
+		gene_data_dir=opt$gene_data_dir,allow_gene_download=opt$allow_gene_download,
+		DTthreads=opt$threads,thinning_mode=opt$thinning_mode,
 		thinning_aggressiveness=opt$thinning_aggressiveness,thinning_sig_threshold=opt$thinning_sig_threshold,
-		custom_thinning_rates=custom_rates,disable_thinning=opt$disable_thinning)
+		custom_thinning_rates=custom_rates,disable_thinning=opt$disable_thinning,
+		random_seed=opt$random_seed)
+}, error=function(e) {
+	dev.off()
+	stop(e)
+})
 dev.off()
 
 if(nrow(candidateRegions) > 0) fwrite(candidateRegions,paste0(opt$prefix,"_ManhattanPlot_",

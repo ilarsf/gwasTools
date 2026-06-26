@@ -4,6 +4,24 @@ library("optparse")
 library("RColorBrewer")
 library("pwr")
 
+stopf <- function(...) stop(sprintf(...), call. = FALSE)
+
+parsePositiveIntegers <- function(value, option_name) {
+	num <- suppressWarnings(as.integer(strsplit(value,",")[[1]]))
+	if(length(num) == 0 || any(is.na(num)) || any(num <= 0)) {
+		stopf("%s must contain comma-separated positive integers", option_name)
+	}
+	return(num)
+}
+
+parsePositiveNumerics <- function(value, option_name) {
+	num <- suppressWarnings(as.numeric(strsplit(value,",")[[1]]))
+	if(length(num) == 0 || any(is.na(num)) || any(!is.finite(num)) || any(num <= 0)) {
+		stopf("%s must contain comma-separated positive numeric values", option_name)
+	}
+	return(num)
+}
+
 # Power Analysis
 getPower <- function(ncases,ncontrols,alpha,raf.controls){
 	# effective samples size in alleles (x2)
@@ -81,8 +99,16 @@ args <- parse_args(parser, positional_arguments = 0)
 opt <- args$options
 print(opt)
 
-samplesizes <- data.frame('cases'=as.integer(strsplit(opt$cases,",")[[1]]),
-		   'controls'=as.integer(strsplit(opt$controls,",")[[1]]))
+cases <- parsePositiveIntegers(opt$cases, "--cases")
+controls <- parsePositiveIntegers(opt$controls, "--controls")
+if(length(cases) != length(controls)) stopf("--cases and --controls must contain the same number of values")
+if(!is.finite(opt$alpha) || opt$alpha <= 0 || opt$alpha >= 1) stopf("--alpha must be in (0, 1)")
+if(!is.finite(opt$minMAF) || opt$minMAF <= 0 || opt$minMAF >= 0.5) stopf("--minMAF must be in (0, 0.5)")
+if(!is.finite(opt$stepsize) || opt$stepsize <= 0 || opt$stepsize >= 1) stopf("--stepsize must be in (0, 1)")
+ytix <- parsePositiveNumerics(opt$ytix, "--ytix")
+if(length(cases) > 24) stopf("At most 24 case/control pairs can be plotted")
+
+samplesizes <- data.frame('cases'=cases, 'controls'=controls)
 
 plotdata <- list()
 
@@ -101,16 +127,28 @@ for(i in 1:dim(samplesizes)[1]){
 					alpha=opt$alpha,plotfreqs)
 }
 
-if(opt$risksnps != "" & file.exists(opt$risksnps)){
+if(opt$risksnps != "" & !file.exists(opt$risksnps)) {
+	stopf("Risk SNP file not found: %s", opt$risksnps)
+}
+if(opt$risksnps != ""){
 	risksnps <- read.table(opt$risksnps,sep="\t",header=T,comment.char="")
 	if( !all(c("OR","RAF","RAF.CONTROLS") %in% colnames(risksnps))) stop("Check columns in risk SNP file")
+	risksnps$OR <- suppressWarnings(as.numeric(risksnps$OR))
+	risksnps$RAF <- suppressWarnings(as.numeric(risksnps$RAF))
+	risksnps$RAF.CONTROLS <- suppressWarnings(as.numeric(risksnps$RAF.CONTROLS))
+	if(any(is.na(risksnps$OR) | !is.finite(risksnps$OR) | risksnps$OR <= 0) ||
+			any(is.na(risksnps$RAF) | !is.finite(risksnps$RAF) | risksnps$RAF < 0 | risksnps$RAF > 1) ||
+			any(is.na(risksnps$RAF.CONTROLS) | !is.finite(risksnps$RAF.CONTROLS) |
+				risksnps$RAF.CONTROLS < 0 | risksnps$RAF.CONTROLS > 1)) {
+		stopf("Risk SNP columns OR, RAF, and RAF.CONTROLS must be numeric; OR > 0 and frequencies in [0, 1]")
+	}
 	risksnps$RAF <- ifelse(risksnps$OR < 1,1 - risksnps$RAF,risksnps$RAF)
 	risksnps$RAF.CONTROLS <- ifelse(risksnps$OR < 1,1 - risksnps$RAF.CONTROLS,risksnps$RAF.CONTROLS)	
 	risksnps$OR <- ifelse(risksnps$OR < 1,1/risksnps$OR,risksnps$OR)	
 }
 
 png(paste0(opt$prefix,"_PowerAnalysis.png"),width=opt$width,height=opt$height,pointsize=opt$pointsize)
-    ytix <- as.numeric(strsplit(opt$ytix,",")[[1]])
+tryCatch({
     yaxislab <- log(ytix)
     names(yaxislab) <- ytix
 
@@ -148,6 +186,10 @@ png(paste0(opt$prefix,"_PowerAnalysis.png"),width=opt$width,height=opt$height,po
     	col= allcols[1:dim(samplesizes)[1]],
     	lty = alllines[1:dim(samplesizes)[1]],
     	pt.cex=2,title="80% Power",lwd=3)
+}, error=function(e) {
+	dev.off()
+	stop(e)
+})
 dev.off()
 
 print(paste("Plot can be found here:",paste0(opt$prefix,"_PowerAnalysis.png")))

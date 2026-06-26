@@ -5,6 +5,67 @@ options(stringsAsFactors=F)
 library("optparse")
 library("data.table")
 
+stopf <- function(...) stop(sprintf(...), call. = FALSE)
+
+pToLog10 <- function(P, column = "PVALUE") {
+	text <- trimws(as.character(P))
+	num <- suppressWarnings(as.numeric(text))
+	log10P <- rep(NA_real_, length(text))
+	valid <- !is.na(num) & is.finite(num) & num > 0 & num <= 1
+	log10P[valid] <- -log10(num[valid])
+
+	underflow <- !is.na(num) & num == 0 &
+		grepl("^\\+?([0-9]*\\.?[0-9]+)[Ee]-([0-9]+)$", text)
+	if(any(underflow)) {
+		mantissa <- as.numeric(sub("^\\+?([0-9]*\\.?[0-9]+)[Ee]-([0-9]+)$", "\\1", text[underflow]))
+		exponent <- as.numeric(sub("^\\+?([0-9]*\\.?[0-9]+)[Ee]-([0-9]+)$", "\\2", text[underflow]))
+		log10P[underflow] <- exponent - log10(mantissa)
+	}
+
+	invalid <- which(is.na(log10P) | !is.finite(log10P))
+	if(length(invalid) > 0) {
+		stopf("Invalid p-values in column '%s': expected 0 < P <= 1. First invalid row(s): %s",
+			column, paste(head(invalid, 10), collapse = ","))
+	}
+	return(log10P)
+}
+
+validateLog10P <- function(values, column = "PVALUE") {
+	log10P <- suppressWarnings(as.numeric(values))
+	invalid <- which(is.na(log10P) | !is.finite(log10P) | log10P < 0)
+	if(length(invalid) > 0) {
+		stopf("Invalid -log10(P) values in column '%s': expected finite values >= 0. First invalid row(s): %s",
+			column, paste(head(invalid, 10), collapse = ","))
+	}
+	return(log10P)
+}
+
+normalizeAlleleFrequency <- function(values, allele_frequency_type = "auto") {
+	allele_frequency_type <- tolower(allele_frequency_type)
+	if(!(allele_frequency_type %in% c("auto", "maf", "eaf"))) {
+		stopf("--allele_frequency_type must be one of auto, MAF, or EAF")
+	}
+
+	freq <- suppressWarnings(as.numeric(values))
+	invalid <- which(is.na(freq) | !is.finite(freq) | freq < 0 | freq > 1)
+	if(length(invalid) > 0) {
+		stopf("Invalid allele frequencies in MAF column: expected finite values in [0, 1]. First invalid row(s): %s",
+			paste(head(invalid, 10), collapse = ","))
+	}
+
+	over_half <- which(freq > 0.5)
+	if(allele_frequency_type == "maf" && length(over_half) > 0) {
+		stopf("MAF column contains values > 0.5. Use --allele_frequency_type EAF or auto if this column is allele frequency. First row(s): %s",
+			paste(head(over_half, 10), collapse = ","))
+	}
+	if(allele_frequency_type %in% c("auto", "eaf") && length(over_half) > 0) {
+		warning(sprintf("Converting %s allele frequencies > 0.5 to minor allele frequency", length(over_half)),
+			call. = FALSE)
+		freq[over_half] <- 1 - freq[over_half]
+	}
+	return(freq)
+}
+
 # QQ plot function
 qqplotdata <- function(logpvector){
 	require(data.table)
@@ -31,7 +92,8 @@ qqplotdata <- function(logpvector){
 }
 
 QQplot <- function(res,maintitle="",top.size=0.125,break.top=15,
-	maf="MAF",pvalue="PVALUE",log10p=F,sigthreshold="5E-8",DTthreads=1){
+	maf="MAF",pvalue="PVALUE",log10p=F,sigthreshold="5E-8",DTthreads=1,
+	allele_frequency_type="auto"){
 	options(stringsAsFactors=F)
 	require("plotrix")
 	require("data.table")
@@ -41,18 +103,22 @@ QQplot <- function(res,maintitle="",top.size=0.125,break.top=15,
 
 	#check columns
 	setnames(res,c(maf,pvalue),c("MAF","PVALUE"),skip_absent=T)
+	missing <- setdiff(c("MAF","PVALUE"), names(res))
+	if(length(missing) > 0) stopf("Missing required column(s): %s", paste(missing, collapse = ", "))
 	
 	# horizontal lines and corresponding colors
 	yLine <- c(-log10(sort(as.numeric(unlist(strsplit(sigthreshold,","))))))
 	colLine <- c("red")
 
+	res[,MAF:=normalizeAlleleFrequency(MAF, allele_frequency_type)]
 	if(!log10p){
-		res[,LOG10P:=-log10(PVALUE)]
+		res[,LOG10P:=pToLog10(PVALUE)]
 	} else {
-		setnames(res,"PVALUE","LOG10P")
+		res[,LOG10P:=validateLog10P(PVALUE)]
 	}
 	res <- na.omit(res[,.(MAF,LOG10P)])
 	res <- res[!is.infinite(LOG10P),]
+	if(nrow(res) == 0) stopf("No valid rows remain after QQ input validation")
 
 	minMAF <- min(res$MAF)
 
@@ -187,6 +253,8 @@ option_list <- list(
     help="name of column with p.value [default='PVALUE']"),
   make_option("--log10p", type="logical", default=F,
     help="Input p.value column with -log10(p.value) [default=F]"),    
+  make_option("--allele_frequency_type", type="character", default="auto",
+    help="Interpret MAF column as auto, MAF, or EAF; auto/EAF fold values >0.5 [default='auto']"),
   make_option("--maintitle", type="character", default="",
     help="Plot title"),
   make_option("--threads", type="numeric", default=1,
@@ -201,12 +269,17 @@ print(opt)
 
 setDTthreads(opt$threads)
 
-gwas <- fread(opt$input,select=c(opt$maf,opt$pvalue),col.names=c("MAF","PVALUE"))
-
-# Fix results where MAF column is actually EAF
-gwas[MAF > 0.5,MAF:=1-MAF]
+gwas <- fread(opt$input,select=c(opt$maf,opt$pvalue),
+	colClasses=setNames("character", opt$pvalue))
 
 png(filename = paste0(opt$prefix,"_QQ.png"), width=opt$width,height=opt$height,pointsize=opt$pointsize)
+tryCatch({
 	QQplot(res=gwas,top.size=opt$top.size,break.top=opt$break.top,
-		log10p=opt$log10p,sigthreshold="5E-8",maintitle=opt$maintitle,DTthreads=opt$threads)
+		maf=opt$maf,pvalue=opt$pvalue,log10p=opt$log10p,sigthreshold="5E-8",
+		maintitle=opt$maintitle,DTthreads=opt$threads,
+		allele_frequency_type=opt$allele_frequency_type)
+}, error=function(e) {
+	dev.off()
+	stop(e)
+})
 dev.off()
