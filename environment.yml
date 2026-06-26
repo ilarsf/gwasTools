@@ -1,0 +1,15 @@
+name: gwastools
+channels:
+  - conda-forge
+dependencies:
+  - r-base
+  - r-optparse
+  - r-data.table
+  - r-rcolorbrewer
+  - r-plotrix
+  - r-pwr
+  - r-remotes
+  - r-xml
+  - r-rentrez
+  - libxml2
+  - zlib

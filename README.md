@@ -32,9 +32,23 @@ install.packages(c(
 ))
 ```
 
-`Map2NCBI` and `basicPlotteR` are optional. They are needed only for Manhattan nearest-gene labels with `--labelPeaks T`. `basicPlotteR` is installed from GitHub:
+For cluster or conda-based installs, the repository also includes a mamba environment:
+
+```sh
+mamba env create -f environment.yml
+mamba activate gwastools
+```
+
+The environment installs the core plotting dependencies and the compiled XML/rentrez stack that optional nearest-gene labeling may need. If the environment already exists, update it with:
+
+```sh
+mamba env update -f environment.yml --prune
+```
+
+`Map2NCBI` and `basicPlotteR` are optional. They are needed only for Manhattan nearest-gene labels with `--labelPeaks T`. `Map2NCBI` is installed from CRAN, and `basicPlotteR` is installed from GitHub:
 
 ```r
+install.packages("Map2NCBI")
 install.packages("remotes")
 remotes::install_github("JosephCrispell/basicPlotteR")
 ```
