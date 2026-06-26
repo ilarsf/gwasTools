@@ -167,8 +167,6 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 	custom_thinning_rates=NULL,disable_thinning=F,gene_table="",
 	gene_data_dir=DEFAULT_GENE_DATA_DIR,allow_gene_download=F,random_seed=1) {
 
-	# devtools::install_github('JosephCrispell/basicPlotteR')
-	require(basicPlotteR)
 	setDTthreads(DTthreads)
 
 	if(!is.data.table(res)) res <- as.data.table(res)
@@ -645,9 +643,13 @@ ManhattanPlot <- function(res,top.size=0.125,break.top=15,hitregion=NULL,
 		}	
 
 		# non-overlapping labels
-		if(labelPeaks)
-			regionLabels[,addTextLabels(xCoords = `x`, yCoords = `y`, labels = `LABEL`, 
+		if(labelPeaks) {
+			if(!requireNamespace("basicPlotteR", quietly = TRUE)) {
+				stopf("Peak labels require the optional R package 'basicPlotteR'. Install it with remotes::install_github('JosephCrispell/basicPlotteR'), or run with --labelPeaks F.")
+			}
+			regionLabels[,basicPlotteR::addTextLabels(xCoords = `x`, yCoords = `y`, labels = `LABEL`,
 				col.label = "black", col.line = t_black, cex.label = 1, col.background = t_white)]
+		}
 	}	
 	return(candidateRegions)
 }

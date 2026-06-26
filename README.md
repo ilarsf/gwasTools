@@ -8,7 +8,7 @@ Standalone R scripts for common GWAS plotting tasks:
 | --- | --- | --- |
 | `QQplot.r` | Frequency-binned QQ plot from allele frequency and p-value columns. | `<prefix>_QQ.png` |
 | `ManhattanPlot.r` | Manhattan plot with adaptive thinning, candidate-region detection, and optional nearest-gene peak labels. | `<prefix>_Manhattan.png` |
-| `PowerPlot.r` | 80% power curves for case-control sample sizes. | `<prefix>_PowerAnalysis.png` |
+| `PowerPlot.r` | 80% power curves for binary case-control or quantitative traits. | `<prefix>_PowerAnalysis.png` |
 
 Run each script with `--help` for the full option reference:
 
@@ -20,7 +20,7 @@ Rscript PowerPlot.r --help
 
 ## Installation
 
-Install R, the runtime packages, and `remotes` for the GitHub-only dependency:
+Install R and the runtime packages:
 
 ```r
 install.packages(c(
@@ -28,14 +28,16 @@ install.packages(c(
   "data.table",
   "RColorBrewer",
   "plotrix",
-  "pwr",
-  "remotes"
+  "pwr"
 ))
-
-remotes::install_github("JosephCrispell/basicPlotteR")
 ```
 
-`Map2NCBI` is optional. It is needed only for Manhattan nearest-gene labels with `--labelPeaks T`.
+`Map2NCBI` and `basicPlotteR` are optional. They are needed only for Manhattan nearest-gene labels with `--labelPeaks T`. `basicPlotteR` is installed from GitHub:
+
+```r
+install.packages("remotes")
+remotes::install_github("JosephCrispell/basicPlotteR")
+```
 
 Nearest-gene reference files are not downloaded by default. If labeling is enabled, `ManhattanPlot.r` looks for `data/gene_positions/ExonList_<build>.txt` beside `ManhattanPlot.r`, or for the file supplied with `--gene_table`. The `data/gene_positions/` cache is ignored by git and is created only when `--allow_gene_download T` is used.
 
@@ -65,6 +67,13 @@ Rscript PowerPlot.r \
   --prefix tmp/examples/power \
   --cases 500,1000,5000 \
   --controls 1000,2000,10000 \
+  --minMAF 0.001 \
+  --alpha 5E-8
+
+Rscript PowerPlot.r \
+  --trait_type quantitative \
+  --prefix tmp/examples/quantitative_power \
+  --samples 1000,5000,10000 \
   --minMAF 0.001 \
   --alpha 5E-8
 ```
@@ -138,6 +147,12 @@ Rscript ManhattanPlot.r \
 ```
 
 Downloads for missing gene tables occur only when `--allow_gene_download T` is provided.
+
+## Power Notes
+
+`PowerPlot.r` keeps binary case-control power as the default. Binary curves plot the odds ratio needed for 80% power against risk allele frequency in controls, or overall risk allele frequency when `--raf.controls F` is used.
+
+For quantitative traits, use `--trait_type quantitative` and provide total sample sizes with `--samples`. Quantitative curves plot the absolute per-allele beta needed for 80% power against effect allele frequency. By default, beta is shown in phenotype standard deviation units. Use `--trait_sd` to scale beta to raw trait units, and `--covariates` to account for model covariates in the denominator degrees of freedom.
 
 ## Example Outputs
 

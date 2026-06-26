@@ -50,7 +50,7 @@ expect_fail_contains() {
   fi
 }
 
-run Rscript -e 'required <- c("optparse", "data.table", "RColorBrewer", "plotrix", "pwr", "basicPlotteR"); missing <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) { message("Missing R packages: ", paste(missing, collapse = ", ")); quit(status = 1) }'
+run Rscript -e 'required <- c("optparse", "data.table", "RColorBrewer", "plotrix", "pwr"); missing <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]; if (length(missing)) { message("Missing R packages: ", paste(missing, collapse = ", ")); quit(status = 1) }'
 
 run Rscript QQplot.r --help >/dev/null
 run Rscript ManhattanPlot.r --help >/dev/null
@@ -214,7 +214,7 @@ fi
 run Rscript PowerPlot.r \
   --prefix "${OUT_DIR}/smoke" \
   --cases 100,200 \
-  --controls 100,200 \
+  --controls 150,300 \
   --minMAF 0.01 \
   --alpha 5E-8 \
   --stepsize 0.01 \
@@ -223,11 +223,31 @@ run Rscript PowerPlot.r \
   --pointsize 12
 check_file "${OUT_DIR}/smoke_PowerAnalysis.png"
 
+run Rscript PowerPlot.r \
+  --trait_type quantitative \
+  --prefix "${OUT_DIR}/quantitative" \
+  --samples 100,200 \
+  --minMAF 0.01 \
+  --alpha 5E-8 \
+  --stepsize 0.01 \
+  --width 700 \
+  --height 600 \
+  --pointsize 12
+check_file "${OUT_DIR}/quantitative_PowerAnalysis.png"
+
 expect_fail_contains "power mismatched sample sizes" "same number" \
   Rscript PowerPlot.r \
     --prefix "${OUT_DIR}/bad_power" \
     --cases 100,200 \
     --controls 100 \
+    --stepsize 0.01
+
+expect_fail_contains "quantitative power invalid samples" "greater than --covariates + 2" \
+  Rscript PowerPlot.r \
+    --trait_type quantitative \
+    --prefix "${OUT_DIR}/bad_quantitative_power" \
+    --samples 2 \
+    --covariates 1 \
     --stepsize 0.01
 
 echo "Smoke tests passed. Temporary outputs were written under ${OUT_DIR} and removed."

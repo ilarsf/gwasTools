@@ -8,7 +8,7 @@ Run:
 scripts/smoke_tests.sh
 ```
 
-The script uses synthetic fixtures from `tests/fixtures/`, runs each `Rscript --help` command, generates one QQ plot, one Manhattan plot, and one power plot in a temporary directory, and checks that each expected PNG exists and is non-empty.
+The script uses synthetic fixtures from `tests/fixtures/`, runs each `Rscript --help` command, generates QQ, Manhattan, binary power, and quantitative power plots in a temporary directory, and checks that each expected PNG exists and is non-empty.
 
 It also checks adversarial synthetic cases:
 
@@ -20,5 +20,6 @@ It also checks adversarial synthetic cases:
 - unsupported contig labels fail clearly.
 - nearest-gene labeling reads the ignored `data/gene_positions/` cache by default and does not create or download references unless explicitly enabled.
 - invalid power-plot sample-size vectors fail clearly.
+- invalid quantitative power degrees of freedom fail clearly.
 
 The fixtures are intentionally tiny and non-sensitive. Do not add real GWAS, genetic, phenotype, clinical, or PHI-like data to this directory.
